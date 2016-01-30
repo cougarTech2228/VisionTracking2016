@@ -3,10 +3,6 @@ robotics
 
 Python code for FIRST Robotics
 
-* catapult.py 
-    Design code from Aerial Assist, 2014. We were looking at optimal gearing for a direct-drive catapult. 
-    Simulation of voltage and current vs time.
-
 * initcv.py
     Using a logitech C270 webcam for vision processing on a beaglebone black using python-opencv.
     Game is Stronghold, 2016. This file is run once upon boot to configure opencv nicer.
