@@ -66,21 +66,17 @@ RT_MUTEX timerlock;
 RT_TASK ticker_task;
 RT_TASK other_task;
 
+RTIME now;
 // acquire thread
 void ticker(void *arg)
 {
-    RTIME now, previous;
-
     rt_task_set_periodic(NULL, TM_NOW, 341000);
-    previous = rt_timer_read();
 
     while (1) {
         rt_task_wait_period(NULL);
         now = rt_timer_read();
         rt_mutex_acquire(&timerlock, TM_INFINITE);
         rt_mutex_release(&timerlock);
-        long diff = (long)(now-previous);
-        previous = now;
     }
 }
 
@@ -88,21 +84,72 @@ void ticker(void *arg)
 // led thread
 void other(void *arg)
 {
-    RTIME now, previous;
-
     rt_task_set_periodic(NULL, TM_NOW, 341000);
-    previous = rt_timer_read();
 
     while (1) {
         rt_task_wait_period(NULL);
         now = rt_timer_read();
         rt_mutex_acquire(&timerlock, TM_INFINITE);
         rt_mutex_release(&timerlock);
-        long diff = (long)(now-previous);
-        previous = now;
     }
 }
 
+static PyObject *acquire_callback = NULL;
+static PyObject *led_callback = NULL;
+
+static PyObject *
+dsp_acquire_cb(PyObject *dummy, PyObject *args)
+{
+    // PyObject *result = NULL;
+    PyObject *temp;
+    if (PyArg_ParseTuple(args, "O:scancallback", &temp)) {
+        if (!PyCallable_Check(temp)) {
+			if(temp == Py_None) // None passed in? ok.
+			{
+		        Py_XDECREF(acquire_callback);  /* Dispose of previous callback */
+				acquire_callback = NULL;
+		        Py_INCREF(temp);
+				return(temp);
+			}
+			//        PyErr_SetString(PyExc_TypeError, "parameter must be callable");
+			//	return PyErr_Format(PyExc_TypeError,"parameter must be callable");
+			return NULL;
+        }
+        Py_XINCREF(temp);         /* Add a reference to new callback */
+        Py_XDECREF(acquire_callback);  /* Dispose of previous callback */
+        acquire_callback = temp;       /* Remember new callback */
+        /* Boilerplate to return "None" */
+        return Py_BuildValue("");
+    }
+    return NULL;
+}
+
+static PyObject *
+dsp_led_cb(PyObject *dummy, PyObject *args)
+{
+    // PyObject *result = NULL;
+    PyObject *temp;
+    if (PyArg_ParseTuple(args, "O:scancallback", &temp)) {
+        if (!PyCallable_Check(temp)) {
+			if(temp == Py_None) // None passed in? ok.
+			{
+		        Py_XDECREF(led_callback);  /* Dispose of previous callback */
+				led_callback = NULL;
+		        Py_INCREF(temp);
+				return(temp);
+			}
+			//        PyErr_SetString(PyExc_TypeError, "parameter must be callable");
+			//	return PyErr_Format(PyExc_TypeError,"parameter must be callable");
+			return NULL;
+        }
+        Py_XINCREF(temp);         /* Add a reference to new callback */
+        Py_XDECREF(led_callback);  /* Dispose of previous callback */
+        led_callback = temp;       /* Remember new callback */
+        /* Boilerplate to return "None" */
+        return Py_BuildValue("");
+    }
+    return NULL;
+}
 
 int main(int argc, char **argv)
 {
@@ -115,7 +162,7 @@ int main(int argc, char **argv)
         int                             r, fd = -1;
         unsigned int                    i, n_buffers;
         char                            *dev_name = "/dev/video0";
-        char                            out_name[256];
+        // char                            out_name[256];
         FILE                            *fout;
         struct buffer                   *buffers;
 
