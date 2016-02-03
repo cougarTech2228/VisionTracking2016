@@ -95,7 +95,6 @@ class LedThread(threading.Thread) :
         self.delay = delay
         self.ontime = ontime
         self.request = threading.Event()
-        self.result = threading.Event()
         self.daemon = True # this thread will be stopped abruptly when the program exits.
         self.error = True #
     def run(self) :
