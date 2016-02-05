@@ -58,6 +58,7 @@ class AcquireThread(threading.Thread) :
         self.daemon = True # this thread will be stopped abruptly when the program exits.
         self.lt = lt
         self.tavg = 0.0666 # 30 Frames per second
+        self.threshhold = 255 * 9
 
     def run(self) :
         self.sig = array(cap.read()[1], dtype=int16) # signal.. illuminator is on
@@ -76,16 +77,22 @@ class AcquireThread(threading.Thread) :
             self.idiff = self.sig - self.back # signal minus background image
             if error :
                 self.ierr = self.idiff
-            isum = np.sum(self.idiff, axis=2) # add rgb together in each pixel.
-            self.csum = np.sum(isum, axis=0) # sum rows with each other, get sum of each column.
-            self.rsum = np.sum(isum, axis=1) # sum columns together, get sum of each row.
-            # okay, we are done for now.
-            # but more processing might be needed.
+
+            self.process()
+
             self.end = time.time()
             self.tdiff = self.end - self.start
             self.start = self.end # reset our loop timer.
             self.tavg += 0.05 * (self.tdiff - self.tavg) # average time per frame pair.
             self.fps = 2.0 / self.tavg # average frames per second
+
+    def process(self):
+        self.isum = np.sum(self.idiff, axis=2) # add rgb together in each pixel.
+        self.isum = (self.isum**2)/ self.threshhold
+        self.csum = np.sum(self.isum, axis=0) # sum rows with each other, get sum of each column.
+        self.rsum = np.sum(self.isum, axis=1) # sum columns together, get sum of each row.
+        # okay, we are done for now.
+        # but more processing might be needed.
 
             
 class LedThread(threading.Thread) :
@@ -97,6 +104,7 @@ class LedThread(threading.Thread) :
         self.request = threading.Event()
         self.daemon = True # this thread will be stopped abruptly when the program exits.
         self.error = True #
+        self.on = True
     def run(self) :
         while True :
             # continuous loop. wait until sync is called 
@@ -105,9 +113,10 @@ class LedThread(threading.Thread) :
             time.sleep(self.delay)
             wake = time.time()
             self.sleeptime = wake - self.start
-            GPIO.output("P9_24", 1)
+            if self.on:
+                GPIO.output("P9_24", 0)
             time.sleep(self.ontime)
-            GPIO.output("P9_24", 0)
+            GPIO.output("P9_24", 1)
             off = time.time()
             self.ot = off - wake
             self.error = (self.sleeptime > (self.delay + 0.05)) or (self.ot > (self.ontime + 0.05))
@@ -116,6 +125,9 @@ class LedThread(threading.Thread) :
     def notify(self) :
         # video thread calls this to ask for another LED pulse.
         self.request.set()
+
+    def pause(self):
+        self.on = not self.on
         
 lt = LedThread(delay=0.000, ontime=0.008)
 at = AcquireThread(lt)
@@ -133,6 +145,37 @@ def show(img) :
     """
     img = clip(img,0,255)
     icop = array(img, dtype=uint8)
-    icop[:,:,0] = img[:,:,2]
-    icop[:,:,2] = img[:,:,0]
+    #icop[:,:,0] = img[:,:,2]
+    #icop[:,:,2] = img[:,:,0]
     imshow(icop, interpolation="nearest")
+
+import socket
+
+def connect():
+    global sock
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect(("192.168.7.1", 50007))
+
+def send(img) :
+    img = clip(img,0,255)
+    icop = array(img, dtype=uint8)
+    l, w = icop.shape
+    text = icop.tostring()
+    text = text + '<HEAD>{0}#{1}'.format(l,w)
+    sock.sendall(text)
+    sock.sendall(b"<ENDMSG>")
+
+def feed(delay):
+    while True:
+        time.sleep(delay)
+        try:
+            send(at.isum)
+        except:
+            print("no connection")
+            try:
+                connect()
+            except:
+                time.sleep(1)
+
+    
+connect()
