@@ -28,12 +28,16 @@
 #include <native/event.h>
 #include <native/timer.h>
 
+#include "stronghold.h"
+
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 
 struct buffer {
     void   *start;
     size_t length;
 };
+
+struct vidconf_s vid_conf = {5000000, 800000, 1, 1};
 
 static void xioctl(int fh, int request, void *arg)
 {
@@ -50,8 +54,6 @@ static void xioctl(int fh, int request, void *arg)
 }
 
 void embedpy();
-#define WIDTH 160
-#define HEIGHT 120
 #define FORMAT V4L2_PIX_FMT_BGR24 
 #define SYNC_EVENT 1L
 
@@ -60,17 +62,17 @@ RT_TASK led_task;
 RT_TASK acquire_task;
 
 int led_fd = -1;
-
 // led thread
 void led(void *arg)
 {
     unsigned long mask;
     while (1) {
         rt_event_wait(&vid_sync, SYNC_EVENT, &mask, EV_ALL, TM_INFINITE);
-        rt_task_sleep(800000);
+        rt_task_sleep(vid_conf.sleep_time);
+        if (vid_conf.led_enabled)
+            write(led_fd, "0", 1);
+        rt_task_sleep(vid_conf.on_time);
         write(led_fd, "1", 1);
-        rt_task_sleep(5000000);
-        write(led_fd, "0", 1);
         rt_event_clear(&vid_sync, SYNC_EVENT, &mask);
     }
 }
@@ -104,7 +106,7 @@ struct timeval                  tv;
 int                             r, vid_fd = -1;
 unsigned int                    i, n_buffers;
 char                            *dev_name = "/dev/video0";
-char img[160*120*3];
+char img[WIDTH * HEIGHT * 3];
 
 int init_video()
 {
@@ -226,7 +228,7 @@ int main(int argc, char **argv)
 
 static PyObject* py_addrs(PyObject* self, PyObject* args)
 {
-	return Py_BuildValue("ii",buffers[0].start, buffers[1].start);
+	return Py_BuildValue("iii",buffers[0].start, buffers[1].start, &vid_conf);
 }
 
 static PyObject* py_avg(PyObject* self, PyObject* args)

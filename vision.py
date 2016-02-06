@@ -58,7 +58,7 @@ class AcquireThread(threading.Thread) :
         self.daemon = True # this thread will be stopped abruptly when the program exits.
         self.lt = lt
         self.tavg = 0.0666 # 30 Frames per second
-        self.threshhold = 255 * 9
+        self.threshold = 20
 
     def run(self) :
         self.sig = array(cap.read()[1], dtype=int16) # signal.. illuminator is on
@@ -87,10 +87,12 @@ class AcquireThread(threading.Thread) :
             self.fps = 2.0 / self.tavg # average frames per second
 
     def process(self):
-        self.isum = np.sum(self.idiff, axis=2) # add rgb together in each pixel.
-        self.isum = (self.isum**2)/ self.threshhold
-        self.csum = np.sum(self.isum, axis=0) # sum rows with each other, get sum of each column.
-        self.rsum = np.sum(self.isum, axis=1) # sum columns together, get sum of each row.
+        self.rdiff = self.idiff[:,:,2] # all red values into a monochrome image
+        self.gdiff = self.idiff[:,:,1] # all green values into a monochrome image
+        self.gdiff -= self.rdiff
+        self.gdiff = (self.gdiff ** 2) / self.threshold
+        self.csum = np.sum(self.gdiff, axis=0) # sum rows with each other, get sum of each column.
+        self.rsum = np.sum(self.gdiff, axis=1) # sum columns together, get sum of each row.
         # okay, we are done for now.
         # but more processing might be needed.
 
@@ -169,7 +171,7 @@ def feed(delay):
     while True:
         time.sleep(delay)
         try:
-            send(at.isum)
+            send(at.gdiff)
         except:
             print("no connection")
             try:
