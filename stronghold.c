@@ -17,6 +17,8 @@ gcc -O2 -Wall `pkg-config --cflags --libs libv4l2` -lpython27 stronghold.c -o st
 
  */
 
+// TO RUN, you need to, as SU:
+// first expose the GPIO pins to 
 // echo 15 > /sys/class/gpio/export
 // echo out /sys/class/gpio/gpio15/direction
 
@@ -33,6 +35,7 @@ gcc -O2 -Wall `pkg-config --cflags --libs libv4l2` -lpython27 stronghold.c -o st
 #include <libv4l2.h>
 #include <python2.7/Python.h>
 #include <native/task.h>
+#include <native/event.h>
 #include <native/timer.h>
 #include <native/mutex.h>
 
@@ -60,40 +63,42 @@ static void xioctl(int fh, int request, void *arg)
 void embedpy();
 #define WIDTH 160
 #define HEIGHT 120
-// #define FORMAT V4L2_PIX_FMT_RGB24 
+#define FORMAT V4L2_PIX_FMT_BGR24 
 // RGB24 is the original format
-#define FORMAT V4L2_PIX_FMT_YUYV
+// #define FORMAT V4L2_PIX_FMT_YUYV
 #define NPIX 40
+#define SYNC_EVENT 1L
 
 RT_MUTEX timerlock;
-RT_TASK ticker_task;
-RT_TASK other_task;
+RT_EVENT vid_sync;
+RT_TASK led_task;
+RT_TASK acquire_task;
 
 RTIME now;
-// acquire thread
-void ticker(void *arg)
-{
-    rt_task_set_periodic(NULL, TM_NOW, 341000);
 
+int led_fd = -1;
+
+// led thread
+void led(void *arg)
+{
+    unsigned long mask;
     while (1) {
-        rt_task_wait_period(NULL);
-        now = rt_timer_read();
-        rt_mutex_acquire(&timerlock, TM_INFINITE);
-        rt_mutex_release(&timerlock);
+        rt_event_wait(&vid_sync, SYNC_EVENT, &mask, EV_ALL, TM_INFINITE);
+        rt_task_sleep(800000);
+        write(led_fd, "1", 1);
+        rt_task_sleep(5000000);
+        write(led_fd, "0", 1);
+        rt_event_clear(&vid_sync, SYNC_EVENT, &mask);
     }
 }
 
 
-// led thread
-void other(void *arg)
+// acquire thread
+void acquire(void *arg)
 {
-    rt_task_set_periodic(NULL, TM_NOW, 341000);
-
+    init_video();
     while (1) {
-        rt_task_wait_period(NULL);
-        now = rt_timer_read();
-        rt_mutex_acquire(&timerlock, TM_INFINITE);
-        rt_mutex_release(&timerlock);
+        grab_image();
     }
 }
 
@@ -162,7 +167,7 @@ struct v4l2_requestbuffers      req;
 enum v4l2_buf_type              type;
 fd_set                          fds;
 struct timeval                  tv;
-int                             r, fd, led_fd = -1;
+int                             r, fd = -1;
 unsigned int                    i, n_buffers;
 char                            *dev_name = "/dev/video0";
 char img[2][160*120*3];
@@ -242,7 +247,7 @@ void grab_image()
     } while ((r == -1 && (errno = EINTR)));
     if (r == -1) {
         perror("select");
-        return errno;
+        // return errno;
     }
 
     CLEAR(buf);
@@ -250,10 +255,13 @@ void grab_image()
     buf.memory = V4L2_MEMORY_MMAP;
     xioctl(fd, VIDIOC_DQBUF, &buf);
     if (buf.index)
+        rt_event_signal(&vid_sync, SYNC_EVENT);
+    /*
         write(led_fd, "1", 1);
     else
         write(led_fd, "0", 1);
    
+    */
     //memcpy(img[0], buf.start, buf.length)
     // actually, this is our image.
     xioctl(fd, VIDIOC_QBUF, &buf);
@@ -271,18 +279,21 @@ void close_video()
 int main(int argc, char **argv)
 {
     rt_mutex_create(&timerlock,"Timer");
-    rt_task_create(&ticker_task, "ticker", 0, 99, 0); // 99 = highest priority. Ticker loop
-    rt_task_create(&other_task, "other", 0, 90, 0) ; // socket thread (new for beaglebone)
+    rt_task_create(&led_task, "led", 0, 99, 0); // 99 = highest priority. Ticker loop
+    rt_task_create(&acquire_task, "acquire", 0, 90, 0) ; // socket thread (new for beaglebone)
+    rt_event_create(&vid_sync, NULL, 0, EV_PRIO);
 
+    /*
     init_video();
     for (i = 0; i < NPIX; i++) {
         grab_image();
     }
     close_video();
+    */
     printf("done!\n");
 
-    rt_task_start(&ticker_task, (void (*)(void *))&ticker, NULL);
-    rt_task_start(&other_task, (void (*)(void *))&other, NULL);
+    rt_task_start(&led_task, (void (*)(void *))&led, NULL);
+    rt_task_start(&acquire_task, (void (*)(void *))&acquire, NULL);
 
     embedpy();
     return 0;
@@ -302,7 +313,7 @@ static PyObject* py_init(PyObject* self, PyObject* args)
 
 static PyObject* py_grab(PyObject* self, PyObject* args)
 {
-    grab_image();
+    // grab_image();
 	return Py_BuildValue("II",buffers[0].start, buffers[1].start);
 }
 
