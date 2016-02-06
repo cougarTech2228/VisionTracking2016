@@ -1,6 +1,10 @@
 ﻿/* 
  stronghold vision program..
+ Uses OpenCV.
  embeds xenomai and python 2.7
+
+ Chunks of code were taken from Derek Molloy's modified version of
+ Mauro Carvalho Chehab's grabber.c in the opencv demos
  */
 
 // TO RUN, you need to, as SU:
@@ -23,7 +27,6 @@
 #include <native/task.h>
 #include <native/event.h>
 #include <native/timer.h>
-#include <native/mutex.h>
 
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 
@@ -50,17 +53,11 @@ void embedpy();
 #define WIDTH 160
 #define HEIGHT 120
 #define FORMAT V4L2_PIX_FMT_BGR24 
-// RGB24 is the original format
-// #define FORMAT V4L2_PIX_FMT_YUYV
-#define NPIX 40
 #define SYNC_EVENT 1L
 
-RT_MUTEX timerlock;
 RT_EVENT vid_sync;
 RT_TASK led_task;
 RT_TASK acquire_task;
-
-RTIME now;
 
 int led_fd = -1;
 
@@ -80,31 +77,40 @@ void led(void *arg)
 
 
 void grab_image();
+int init_video();
 
+RTIME avg = 0;
 // acquire thread
 void acquire(void *arg)
 {
+RTIME start;
+RTIME end;
+
     init_video();
+    start = rt_timer_read();
     while (1) {
         grab_image();
+        end = rt_timer_read();
+        avg = end - start;
+        start = end;
     }
 }
 
 struct buffer                   *buffers;
 
-struct v4l2_format              fmt;
-struct v4l2_buffer              buf;
-struct v4l2_requestbuffers      req;
 enum v4l2_buf_type              type;
 fd_set                          fds;
 struct timeval                  tv;
 int                             r, vid_fd = -1;
 unsigned int                    i, n_buffers;
 char                            *dev_name = "/dev/video0";
-char img[2][160*120*3];
+char img[160*120*3];
 
 int init_video()
 {
+    struct v4l2_format              fmt;
+    struct v4l2_requestbuffers      req;
+
     vid_fd = v4l2_open(dev_name, O_RDWR | O_NONBLOCK, 0);
     if (vid_fd < 0)
         return vid_fd;
@@ -134,6 +140,7 @@ int init_video()
     req.memory = V4L2_MEMORY_MMAP;
     xioctl(vid_fd, VIDIOC_REQBUFS, &req);
     buffers = calloc(req.count, sizeof(*buffers));
+    struct v4l2_buffer              buf;
     for (n_buffers = 0; n_buffers < req.count; ++n_buffers) {
         CLEAR(buf);
 
@@ -182,20 +189,13 @@ void grab_image()
         // return errno;
     }
 
+    struct v4l2_buffer              buf;
     CLEAR(buf);
     buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     buf.memory = V4L2_MEMORY_MMAP;
     xioctl(vid_fd, VIDIOC_DQBUF, &buf);
-    if (buf.index)
+    if (buf.index == 1)
         rt_event_signal(&vid_sync, SYNC_EVENT);
-    /*
-        write(led_fd, "1", 1);
-    else
-        write(led_fd, "0", 1);
-   
-    */
-    //memcpy(img[0], buf.start, buf.length)
-    // actually, this is our image.
     xioctl(vid_fd, VIDIOC_QBUF, &buf);
 }
 
@@ -210,7 +210,6 @@ void close_video()
 
 int main(int argc, char **argv)
 {
-    rt_mutex_create(&timerlock,"Timer");
     rt_task_create(&led_task, "led", 0, 99, 0); // 99 = highest priority. Ticker loop
     rt_task_create(&acquire_task, "acquire", 0, 90, 0) ; // socket thread (new for beaglebone)
     rt_event_create(&vid_sync, NULL, 0, EV_PRIO);
@@ -219,37 +218,25 @@ int main(int argc, char **argv)
     rt_task_start(&acquire_task, (void (*)(void *))&acquire, NULL);
 
     embedpy();
+    rt_task_delete(&led_task);
+    rt_task_delete(&acquire_task);
     close_video();
     return 0;
 }
 
-/*
-static PyObject* py_init(PyObject* self, PyObject* args)
+static PyObject* py_addrs(PyObject* self, PyObject* args)
 {
-    init_video();
-	return Py_BuildValue("");
-}
-*/
-
-
-static PyObject* py_grab(PyObject* self, PyObject* args)
-{
-	return Py_BuildValue("II",buffers[0].start, buffers[1].start);
+	return Py_BuildValue("ii",buffers[0].start, buffers[1].start);
 }
 
-/*
-static PyObject* py_close(PyObject* self, PyObject* args)
+static PyObject* py_avg(PyObject* self, PyObject* args)
 {
-    close_video();
-	return Py_BuildValue("");
+	return Py_BuildValue("l",avg);
 }
-*/
 
 static PyMethodDef CTMethods[] = {
-	// {"getint", ct_gethook, METH_VARARGS, NULL},
-	//{"init", py_init, METH_VARARGS, NULL},
-	{"grab", py_grab, METH_VARARGS, NULL},
-	//{"close", py_close, METH_VARARGS, NULL},
+	{"addrs", py_addrs, METH_VARARGS, NULL},
+	{"avg", py_avg, METH_VARARGS, NULL},
 	{NULL, NULL, 0, NULL}
 };
 
@@ -264,7 +251,6 @@ void embedpy()
   PyImport_AppendInittab("_ct",init_cougartech);
   PyEval_InitThreads();
   PyRun_SimpleString("import code; code.interact()\n");
-  // PyRun_SimpleString("execfile('stronghold.py')\n");
   Py_Finalize();
 }
 

@@ -1,7 +1,7 @@
 
 
 import _ct
-a,b = _ct.grab()
+a,b = _ct.addrs()
 from ctypes import c_ubyte
 Image=(((c_ubyte*3)*160)*120)
 from numpy.ctypeslib import as_array
@@ -16,4 +16,5 @@ from cv2 import cv
 while True :
     cv2.imshow("sig", sig)
     cv2.imshow("back", back)
-    cv2.waitKey(1)
+    cv2.imshow("diff", cv2.subtract(sig,back))
+    cv2.waitKey(20)
