@@ -79,7 +79,7 @@ void led(void *arg)
 void grab_image();
 int init_video();
 
-RTIME avg = 0;
+long avg = 0;
 // acquire thread
 void acquire(void *arg)
 {
@@ -91,7 +91,7 @@ RTIME end;
     while (1) {
         grab_image();
         end = rt_timer_read();
-        avg = end - start;
+        avg = (long) end-start ;
         start = end;
     }
 }
