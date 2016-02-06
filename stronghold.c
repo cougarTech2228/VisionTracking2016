@@ -1,20 +1,6 @@
-﻿/* V4L2 video picture grabber
-   Copyright (C) 2009 Mauro Carvalho Chehab <mchehab@infradead.org>
-
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation version 2 of the License.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   Modified by Derek Molloy (www.derekmolloy.ie)
-   Modified to change resolution details and set paths for the Beaglebone.
-
-gcc -O2 -Wall `pkg-config --cflags --libs libv4l2` -lpython27 stronghold.c -o stronghold 
-
+﻿/* 
+ stronghold vision program..
+ embeds xenomai and python 2.7
  */
 
 // TO RUN, you need to, as SU:
@@ -93,6 +79,8 @@ void led(void *arg)
 }
 
 
+void grab_image();
+
 // acquire thread
 void acquire(void *arg)
 {
@@ -100,63 +88,6 @@ void acquire(void *arg)
     while (1) {
         grab_image();
     }
-}
-
-static PyObject *acquire_callback = NULL;
-static PyObject *led_callback = NULL;
-
-static PyObject *
-dsp_acquire_cb(PyObject *dummy, PyObject *args)
-{
-    // PyObject *result = NULL;
-    PyObject *temp;
-    if (PyArg_ParseTuple(args, "O:scancallback", &temp)) {
-        if (!PyCallable_Check(temp)) {
-			if(temp == Py_None) // None passed in? ok.
-			{
-		        Py_XDECREF(acquire_callback);  // Dispose of previous callback 
-				acquire_callback = NULL;
-		        Py_INCREF(temp);
-				return(temp);
-			}
-			//        PyErr_SetString(PyExc_TypeError, "parameter must be callable");
-			//	return PyErr_Format(PyExc_TypeError,"parameter must be callable");
-			return NULL;
-        }
-        Py_XINCREF(temp);         // Add a reference to new callback 
-        Py_XDECREF(acquire_callback);  // Dispose of previous callback 
-        acquire_callback = temp;       // Remember new callback 
-        // Boilerplate to return "None" 
-        return Py_BuildValue("");
-    }
-    return NULL;
-}
-
-static PyObject *
-dsp_led_cb(PyObject *dummy, PyObject *args)
-{
-    // PyObject *result = NULL;
-    PyObject *temp;
-    if (PyArg_ParseTuple(args, "O:scancallback", &temp)) {
-        if (!PyCallable_Check(temp)) {
-			if(temp == Py_None) // None passed in? ok.
-			{
-		        Py_XDECREF(led_callback);  // Dispose of previous callback 
-				led_callback = NULL;
-		        Py_INCREF(temp);
-				return(temp);
-			}
-			//        PyErr_SetString(PyExc_TypeError, "parameter must be callable");
-			//	return PyErr_Format(PyExc_TypeError,"parameter must be callable");
-			return NULL;
-        }
-        Py_XINCREF(temp);         // Add a reference to new callback 
-        Py_XDECREF(led_callback);  // Dispose of previous callback 
-        led_callback = temp;       // Remember new callback 
-        // Boilerplate to return "None" 
-        return Py_BuildValue("");
-    }
-    return NULL;
 }
 
 struct buffer                   *buffers;
@@ -167,27 +98,28 @@ struct v4l2_requestbuffers      req;
 enum v4l2_buf_type              type;
 fd_set                          fds;
 struct timeval                  tv;
-int                             r, fd = -1;
+int                             r, vid_fd = -1;
 unsigned int                    i, n_buffers;
 char                            *dev_name = "/dev/video0";
 char img[2][160*120*3];
 
 int init_video()
 {
-    fd = v4l2_open(dev_name, O_RDWR | O_NONBLOCK, 0);
-    if (fd < 0)
-        return fd;
+    vid_fd = v4l2_open(dev_name, O_RDWR | O_NONBLOCK, 0);
+    if (vid_fd < 0)
+        return vid_fd;
 
     led_fd = open("/sys/class/gpio/gpio15/value",O_WRONLY);
     if (led_fd < 0)
-        return fd;
+        return led_fd;
+
     CLEAR(fmt);
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     fmt.fmt.pix.width       = WIDTH;
     fmt.fmt.pix.height      = HEIGHT;
     fmt.fmt.pix.pixelformat = FORMAT;
     fmt.fmt.pix.field       = V4L2_FIELD_INTERLACED;
-    xioctl(fd, VIDIOC_S_FMT, &fmt);
+    xioctl(vid_fd, VIDIOC_S_FMT, &fmt);
     if (fmt.fmt.pix.pixelformat != FORMAT) {
             printf("Libv4l didn't accept requested format. Can't proceed.\n");
             exit(EXIT_FAILURE);
@@ -200,7 +132,7 @@ int init_video()
     req.count = 2;
     req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     req.memory = V4L2_MEMORY_MMAP;
-    xioctl(fd, VIDIOC_REQBUFS, &req);
+    xioctl(vid_fd, VIDIOC_REQBUFS, &req);
     buffers = calloc(req.count, sizeof(*buffers));
     for (n_buffers = 0; n_buffers < req.count; ++n_buffers) {
         CLEAR(buf);
@@ -209,12 +141,12 @@ int init_video()
         buf.memory      = V4L2_MEMORY_MMAP;
         buf.index       = n_buffers;
 
-        xioctl(fd, VIDIOC_QUERYBUF, &buf);
+        xioctl(vid_fd, VIDIOC_QUERYBUF, &buf);
 
         buffers[n_buffers].length = buf.length;
         buffers[n_buffers].start = v4l2_mmap(NULL, buf.length,
               PROT_READ | PROT_WRITE, MAP_SHARED,
-              fd, buf.m.offset);
+              vid_fd, buf.m.offset);
 
         if (MAP_FAILED == buffers[n_buffers].start) {
             perror("mmap");
@@ -226,24 +158,24 @@ int init_video()
         buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         buf.memory = V4L2_MEMORY_MMAP;
         buf.index = i;
-        xioctl(fd, VIDIOC_QBUF, &buf);
+        xioctl(vid_fd, VIDIOC_QBUF, &buf);
     }
     type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    xioctl(fd, VIDIOC_STREAMON, &type);
-    return fd;
+    xioctl(vid_fd, VIDIOC_STREAMON, &type);
+    return vid_fd;
 }
 
 void grab_image()
 {
     do {
         FD_ZERO(&fds);
-        FD_SET(fd, &fds);
+        FD_SET(vid_fd, &fds);
 
         // Timeout. 
         tv.tv_sec = 2;
         tv.tv_usec = 0;
 
-        r = select(fd + 1, &fds, NULL, NULL, &tv);
+        r = select(vid_fd + 1, &fds, NULL, NULL, &tv);
     } while ((r == -1 && (errno = EINTR)));
     if (r == -1) {
         perror("select");
@@ -253,7 +185,7 @@ void grab_image()
     CLEAR(buf);
     buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     buf.memory = V4L2_MEMORY_MMAP;
-    xioctl(fd, VIDIOC_DQBUF, &buf);
+    xioctl(vid_fd, VIDIOC_DQBUF, &buf);
     if (buf.index)
         rt_event_signal(&vid_sync, SYNC_EVENT);
     /*
@@ -264,16 +196,16 @@ void grab_image()
     */
     //memcpy(img[0], buf.start, buf.length)
     // actually, this is our image.
-    xioctl(fd, VIDIOC_QBUF, &buf);
+    xioctl(vid_fd, VIDIOC_QBUF, &buf);
 }
 
 void close_video()
 {
     type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    xioctl(fd, VIDIOC_STREAMOFF, &type);
+    xioctl(vid_fd, VIDIOC_STREAMOFF, &type);
     for (i = 0; i < n_buffers; ++i)
         v4l2_munmap(buffers[i].start, buffers[i].length);
-    v4l2_close(fd);
+    v4l2_close(vid_fd);
 }
 
 int main(int argc, char **argv)
@@ -283,51 +215,41 @@ int main(int argc, char **argv)
     rt_task_create(&acquire_task, "acquire", 0, 90, 0) ; // socket thread (new for beaglebone)
     rt_event_create(&vid_sync, NULL, 0, EV_PRIO);
 
-    /*
-    init_video();
-    for (i = 0; i < NPIX; i++) {
-        grab_image();
-    }
-    close_video();
-    */
-    printf("done!\n");
-
     rt_task_start(&led_task, (void (*)(void *))&led, NULL);
     rt_task_start(&acquire_task, (void (*)(void *))&acquire, NULL);
 
     embedpy();
+    close_video();
     return 0;
 }
 
-
-static PyObject* ct_gethook(PyObject* self, PyObject* args)
-{
-	return Py_BuildValue("I",buffers[0].start);
-}
-
+/*
 static PyObject* py_init(PyObject* self, PyObject* args)
 {
     init_video();
 	return Py_BuildValue("");
 }
+*/
+
 
 static PyObject* py_grab(PyObject* self, PyObject* args)
 {
-    // grab_image();
 	return Py_BuildValue("II",buffers[0].start, buffers[1].start);
 }
 
+/*
 static PyObject* py_close(PyObject* self, PyObject* args)
 {
     close_video();
 	return Py_BuildValue("");
 }
+*/
 
 static PyMethodDef CTMethods[] = {
 	// {"getint", ct_gethook, METH_VARARGS, NULL},
-	{"init", py_init, METH_VARARGS, NULL},
+	//{"init", py_init, METH_VARARGS, NULL},
 	{"grab", py_grab, METH_VARARGS, NULL},
-	{"close", py_close, METH_VARARGS, NULL},
+	//{"close", py_close, METH_VARARGS, NULL},
 	{NULL, NULL, 0, NULL}
 };
 

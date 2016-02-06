@@ -16,5 +16,4 @@ from cv2 import cv
 while True :
     cv2.imshow("sig", sig)
     cv2.imshow("back", back)
-    cv2.imshow("diff", sig-back)
     cv2.waitKey(1)
