@@ -17,9 +17,9 @@ EXECUTABLE=stronghold
 # compiled python files created from python files.
 # not sure all depends on sources?
 # also the dtbo and zip may belong elsewhere.
-all: $(EXECUTABLE) 
+all: $(EXECUTABLE) stronghold.py
 
-.SUFFIXES: .py .pyc .asm
+.SUFFIXES: .py .pyc .asm .h .xml
 
 .h.xml: 
 	h2xml -I . $< -D BEAGLEBONE -D _dsp -D H2XML -c -o $@ 
