@@ -97,9 +97,9 @@ class AcquireThread(threading.Thread) :
         # but more processing might be needed.
 
             
-class LedThread(threading.Thread) :
+class LedThread(threading.Thread):
     # separate thread that turns the LED on and off
-    def __init__(self, delay, ontime) :
+    def __init__(self, delay, ontime:
         threading.Thread.__init__(self)
         self.delay = delay
         self.ontime = ontime
@@ -107,8 +107,8 @@ class LedThread(threading.Thread) :
         self.daemon = True # this thread will be stopped abruptly when the program exits.
         self.error = True #
         self.on = True
-    def run(self) :
-        while True :
+    def run(self):
+        while True:
             # continuous loop. wait until sync is called 
             self.request.wait()
             self.start = time.time()

@@ -37,7 +37,7 @@ struct buffer {
     size_t length;
 };
 
-struct vidconf_s vid_conf = {5000000, 800000, 1, 1};
+struct vidconf_s vid_conf = {15000000, 800000, 1, 1};
 
 static void xioctl(int fh, int request, void *arg)
 {
@@ -223,6 +223,7 @@ int main(int argc, char **argv)
     rt_task_delete(&led_task);
     rt_task_delete(&acquire_task);
     close_video();
+    write(led_fd, "1", 1);
     return 0;
 }
 
