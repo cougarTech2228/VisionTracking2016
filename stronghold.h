@@ -8,4 +8,5 @@ struct vidconf_s
     int invert;
     int led_enabled;
     double threshold;
+    float fps;
     };
