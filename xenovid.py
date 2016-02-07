@@ -15,16 +15,22 @@ ib = Image.from_address(b)
 sig = as_array(ia)
 back = as_array(ib)
 
-import cv2
+import cv2, threading
 from cv2 import cv
 
+class DisplayThread(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.daemon = True
+    def run(self):
+        while True :
+            cv2.imshow("sig", sig)
+            cv2.imshow("back", back)
+            cv2.imshow("diff", cv2.subtract(sig,back))
+            cv2.waitKey(20)
 
-while True :
-    cv2.imshow("sig", sig)
-    cv2.imshow("back", back)
-    cv2.imshow("diff", cv2.subtract(sig,back))
-    cv2.waitKey(20)
-
+dt = DisplayThread()
+dt.start()
 import socket, time
 
 def connect():
@@ -33,7 +39,7 @@ def connect():
     sock.connect(("192.168.7.1", 50007))
 
 def send(img) :
-    img = clip(img,0,255)
+    img = np.clip(img,0,255)
     icop = array(img, dtype=uint8)
     l, w = icop.shape
     text = icop.tostring()
