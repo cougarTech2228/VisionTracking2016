@@ -30,6 +30,7 @@
 
 #include "stronghold.h"
 
+// -- grabber.c code to
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 
 struct buffer {
@@ -82,6 +83,7 @@ void grab_image();
 int init_video();
 
 long avg = 0;
+float avgt = 0;
 // acquire thread
 void acquire(void *arg)
 {
@@ -94,13 +96,13 @@ RTIME end;
         grab_image();
         end = rt_timer_read();
         avg = (long) end-start ;
+        avgt += (avg-avgt) * 0.1;
+        vid_conf.fps = 1000000000.f / avgt;
         start = end;
     }
 }
 
 struct buffer                   *buffers;
-
-enum v4l2_buf_type              type;
 fd_set                          fds;
 struct timeval                  tv;
 int                             r, vid_fd = -1;
@@ -169,6 +171,7 @@ int init_video()
         buf.index = i;
         xioctl(vid_fd, VIDIOC_QBUF, &buf);
     }
+    enum v4l2_buf_type              type;
     type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     xioctl(vid_fd, VIDIOC_STREAMON, &type);
     return vid_fd;
@@ -203,6 +206,7 @@ void grab_image()
 
 void close_video()
 {
+    enum v4l2_buf_type              type;
     type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     xioctl(vid_fd, VIDIOC_STREAMOFF, &type);
     for (i = 0; i < n_buffers; ++i)
