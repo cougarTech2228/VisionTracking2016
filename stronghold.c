@@ -70,9 +70,9 @@ void led(void *arg)
         rt_event_wait(&vid_sync, SYNC_EVENT, &mask, EV_ALL, TM_INFINITE);
         rt_task_sleep(vid_conf.sleep_time);
         if (vid_conf.led_enabled)
-            write(led_fd, "0", 1);
+            write(led_fd, vid_conf.invert?"0":"1", 1);
         rt_task_sleep(vid_conf.on_time);
-        write(led_fd, "1", 1);
+        write(led_fd, vid_conf.invert?"1":"0", 1);
         rt_event_clear(&vid_sync, SYNC_EVENT, &mask);
     }
 }
