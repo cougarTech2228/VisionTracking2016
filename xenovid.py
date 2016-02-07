@@ -26,7 +26,9 @@ class DisplayThread(threading.Thread):
         while True :
             cv2.imshow("sig", sig)
             cv2.imshow("back", back)
-            cv2.imshow("diff", cv2.subtract(sig,back))
+            diff = cv2.subtract(sig,back)
+#            diff = (diff ** 2) / vc.threshold
+            cv2.imshow("diff", diff)
             cv2.waitKey(20)
 
 dt = DisplayThread()
