@@ -1,6 +1,6 @@
 import os, sys
 sys.path.append(os.getcwd())
-
+import numpy as np
 import _ct
 a,b,vid_conf_addr = _ct.addrs()
 from ctypes import c_ubyte
@@ -16,7 +16,11 @@ sig = as_array(ia)
 back = as_array(ib)
 
 import cv2, threading
+import cPickle as pickle
+from pylab import plot, ion
+ion()
 from cv2 import cv
+from time import time
 
 class DisplayThread(threading.Thread):
     def __init__(self):
@@ -26,14 +30,29 @@ class DisplayThread(threading.Thread):
         while True :
             cv2.imshow("sig", sig)
             cv2.imshow("back", back)
-            diff = cv2.subtract(sig,back)
-#            diff = (diff ** 2) / vc.threshold
-            cv2.imshow("diff", diff)
-            cv2.waitKey(20)
+            self.diff = cv2.subtract(sig,back)
+            cv2.imshow("diff", self.diff)
+            
+            temp_diff = np.sum(self.diff, axis=2)
+            self.hsum = np.sum(self.diff, axis=1)
+            self.vsum = np.sum(self.diff, axis=0)
+            key = cv2.waitKey(20)
+            if key == -1:
+                continue
+            if key == ord('s') or key == ord('S'):
+                with open("diff.np", "w") as f:
+                    pickle.dump(self.diff, f)
+                with open("sig.np", "w") as f:
+                    pickle.dump(sig, f)
+                with open("back.np", "w") as f:
+                    pickle.dump(back, f)
+
+                continue
 
 dt = DisplayThread()
 dt.start()
-import socket, time
+import socket
+from time import sleep
 
 def connect():
     global sock
@@ -51,7 +70,7 @@ def send(img) :
 
 def feed(delay, frame):
     while True:
-        time.sleep(delay)
+        sleep(delay)
         try:
             send(frame)
         except:
