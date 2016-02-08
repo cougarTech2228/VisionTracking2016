@@ -27,11 +27,11 @@ for i, v in enumerate(vsum):
 	if search:
 		if v>threshold:
 			search=False
-			segments.append(i)
+			tmp_point = i
 	else:
 		if v<threshold:
 			search= True
-			segments[-1] = (segments[-1],i)
+			segments[-1] = (tmp_point,i)
 
 print("segments: " + str(segments)) 
 
@@ -49,7 +49,8 @@ if len(segments) == 2:
 	
    
 	state = 0 #state of the hsum scanner
-	thresholds = (2000, 10000) #thresholds 
+    hmax = np.max(hsum)
+	thresholds = (hmax/10, hmax/2) #thresholds 
 	points = [] #[v-bars, h-bar, bottom]
 
 	for i, v in enumerate(hsum):
