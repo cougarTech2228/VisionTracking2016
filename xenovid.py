@@ -5,6 +5,7 @@ import _ct
 a,b,vid_conf_addr = _ct.addrs()
 from ctypes import c_ubyte
 from stronghold import WIDTH, HEIGHT, vidconf_s
+import copy
 
 vc = vidconf_s.from_address(vid_conf_addr)
 
@@ -28,10 +29,11 @@ class DisplayThread(threading.Thread):
 		self.daemon = True
 	def run(self):
 		while True :
-			cv2.imshow("sig", sig)
-			cv2.imshow("back", back)
+			#cv2.imshow("sig", sig)
+			#cv2.imshow("back", back)
+			
 			self.diff = cv2.subtract(sig,back)
-			cv2.imshow("diff", self.diff) 
+			#cv2.imshow("diff", self.diff) 
 			
 			process(self.diff)            
 
@@ -85,16 +87,15 @@ def feed(delay, frame):
 def process(diff):
 	global offsetX, offsetY
 
-	#mono_diff = np.sum(diff, axis=2) 
 	(bdiff , gdiff , rdiff) = cv2.split(diff)
 	
 	mono_diff = cv2.subtract(gdiff, rdiff)
-	cv2.imshow("gdiff", gdiff)
-	cv2.imshow("rdiff", rdiff)
-	cv2.imshow("bdiff", bdiff)
-	cv2.imshow("mono", mono_diff)
-
 	vsum = np.sum(mono_diff, axis=0)
+	
+	#cv2.imshow("gdiff", gdiff)
+	#cv2.imshow("rdiff", rdiff)
+	#cv2.imshow("bdiff", bdiff)
+	#cv2.imshow("mono", mono_diff)
 
 	#constant to filter peaks in vsum (middle of range)
 	threshold = (np.max(vsum) - np.min(vsum)) / 2 
@@ -158,17 +159,27 @@ def process(diff):
 		if len(points) == 3:
 			#distance from the bottom of the view to the bottom of the target
 			offsetY = HEIGHT - (points[2] + points[1])/2
-			print(str(offsetX) + " " + str(offsetY))
+			display(True)
 						
 		else:
 			print("ERROR: " + str(len(points)) + " hsum points instead of 3?")
+			display(False)
 			pass
 			
 
 	else:
 		print("ERROR: found " + str(len(segments)) + " vsum segments (vertical bars). Expected 2.")
+		display(False)
 		pass
 
 		
+def display(found):
+	disp_img = copy.copy(sig)
+	
+	if(found):
+		cv2.line(disp_img,(WIDTH/2 + offsetX,0),(WIDTH/2 + offsetX,HEIGHT),(0,0,255),3)
+		cv2.line(disp_img,(0,HEIGHT - offsetY),(WIDTH, HEIGHT - offsetY),(0,0,255),3)
+	else:
+		cv2.putText(disp_img, "?", (WIDTH/3, HEIGHT/3), cv2.FONT_HERSHEY_PLAIN, 4, (0,0,255),4)    
 
-	   
+	cv2.imshow("display",disp_img)
