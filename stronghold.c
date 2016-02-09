@@ -38,7 +38,7 @@ struct buffer {
     size_t length;
 };
 
-struct vidconf_s vid_conf = {15000000, 800000, 1, 1};
+struct vidconf_s vid_conf = {15000000, 800000, 1, 1, 20.0, 0};
 
 static void xioctl(int fh, int request, void *arg)
 {

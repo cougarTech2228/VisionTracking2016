@@ -7,5 +7,6 @@ struct vidconf_s
     unsigned int sleep_time;
     int invert;
     int led_enabled;
+    double threshold;
     float fps;
     };
