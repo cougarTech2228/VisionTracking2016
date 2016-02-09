@@ -22,7 +22,7 @@ all: $(EXECUTABLE) stronghold.py
 .SUFFIXES: .py .pyc .asm .h .xml
 
 .h.xml: 
-	h2xml -I . $< -D BEAGLEBONE -D _dsp -D H2XML -c -o $@ 
+	h2xml -I . $< -c -o $@ 
 
 .xml.py:
 	xml2py $< -o $@ 
