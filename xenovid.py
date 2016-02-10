@@ -123,8 +123,7 @@ class VideoThread(threading.Thread):
             #gap in pixels between the center of two hills
             gap = peaks[1] - peaks[0]
             # We can do a sanity check on the gap, too.
-     
-            hsum = np.sum(mono_diff[..., peaks[0] : peaks[1]], axis=1) #horizontal sum
+            hsum = np.sum(mono_diff[:, peaks[0] : peaks[1]], axis=1) #horizontal sum
         
             state = 0 #state of the hsum scanner
             hmax = np.max(hsum)
