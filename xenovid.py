@@ -98,22 +98,22 @@ class VideoThread(threading.Thread):
                 
         # we will VERY often get more than 2.. camera might see 6!!
         # find two peaks next to each other of sensible separation and strength.
-        # we want the two strongest ones.
+        # we want the two strongest ones?
+        # actually, we pick the strongest peak
+        # and its strongest neighbor.
         if len(segments) > 2 :  # if we DO get more than 2
             sums = [seg[0] for seg in segments] # just look at their strengths.
             strongest = max(sums) 
-            if sums[0] == strongest :
-                segments = segments[:2]
-            elif sums[-1] == strongest :
+            if sums[0] == strongest : # first peak is strongest? then first two.
+                segments = segments[:2] 
+            elif sums[-1] == strongest : # last peak is strongest? last two.
                 segments = segments[-2:]
             else :
-                ix = sums.index(strongest)
+                ix = sums.index(strongest) # pick the strongest neighbor.
                 if sums[ix + 1] > sums[ix - 1] :
                     segments = segments[ix : ix + 2]
                 else :
                     segments = segments[ix - 1 : ix + 1]
-        # actually, we pick the strongest peak
-        # and its strongest neighbor.
         if len(segments) == 2 :
             peaks = [sum(s[1])/2 for s in segments]
 
