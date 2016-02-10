@@ -36,6 +36,8 @@ class VideoThread(threading.Thread):
 
     def run(self):
         while True :
+            self.process()            
+
             if self.showsig :
                 cv2.imshow("sig", sig)
             if self.showback :
@@ -43,8 +45,6 @@ class VideoThread(threading.Thread):
             if self.showdiff :
                 cv2.imshow("diff", self.diff) 
             
-            self.process()            
-
             if self.watch_keys :
                 key = cv2.waitKey(20)
                 if key == -1:
@@ -58,13 +58,22 @@ class VideoThread(threading.Thread):
                         pickle.dump(back, f)
                     continue
             else :
-                cv2.waitKey(1) 
+                # cv2.waitKey(1) 
+                pass
 
     def process(self):
         global offsetX, offsetY
-    
+        # estimate the row and column shift..
+        # look at diff of previous back and current back
+        # grab a single row of the diff image
+        # cross-correlation with self should yield
+        # a strong dip at the horizontal shift.
         self.diff = cv2.subtract(sig, back) # could do the diff in C code.
-        bdiff, gdiff, rdiff = cv2.split(self.diff)
+        # next method is much faster (if it works)
+        if False : 
+            bdiff, gdiff, rdiff = [self.diff[:,:,i] for i in range(3)] #lightweight
+        else :
+            bdiff, gdiff, rdiff = cv2.split(self.diff) # not sure what split does internally
         
         mono_diff = cv2.subtract(gdiff, rdiff)
         vsum = np.sum(mono_diff, axis=0)
