@@ -32,7 +32,7 @@ class DisplayThread(threading.Thread):
 			#cv2.imshow("sig", sig)
 			#cv2.imshow("back", back)
 			
-			self.diff = cv2.subtract(sig,back)
+			self.diff = cv2.subtract(sig, back)
 			#cv2.imshow("diff", self.diff) 
 			
 			process(self.diff)            
@@ -50,44 +50,10 @@ class DisplayThread(threading.Thread):
 
 				continue
 
-
-dt = DisplayThread()
-dt.start()
-import socket
-from time import sleep
-
-def connect():
-	global sock
-	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	sock.connect(("192.168.7.1", 50007))
-
-def send_img(img) :
-	img = np.clip(img,0,255)
-	icop = array(img, dtype=uint8)
-	l, w = icop.shape
-	text = icop.tostring()
-	text = text + '<HEAD>{0}#{1}'.format(l,w)
-	sock.sendall(text)
-	sock.sendall(b"<ENDMSG>")
- 
-def feed(delay, frame):
-	while True:
-		sleep(delay)
-		try:
-			send_img(frame)
-		except:
-			print("no connection")
-			try:
-				connect()
-			except:
-				time.sleep(1)
-
-   
-#process an image
 def process(diff):
 	global offsetX, offsetY
 
-	(bdiff , gdiff , rdiff) = cv2.split(diff)
+	bdiff, gdiff, rdiff = cv2.split(diff)
 	
 	mono_diff = cv2.subtract(gdiff, rdiff)
 	vsum = np.sum(mono_diff, axis=0)
@@ -183,3 +149,38 @@ def display(found):
 		cv2.putText(disp_img, "?", (WIDTH/3, HEIGHT/3), cv2.FONT_HERSHEY_PLAIN, 4, (0,0,255),4)    
 
 	cv2.imshow("display",disp_img)
+
+dt = DisplayThread()
+dt.start()
+
+import socket
+from time import sleep
+
+def connect():
+	global sock
+	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	sock.connect(("192.168.7.1", 50007))
+
+def send_img(img) :
+	img = np.clip(img,0,255)
+	icop = array(img, dtype=uint8)
+	l, w = icop.shape
+	text = icop.tostring()
+	text = text + '<HEAD>{0}#{1}'.format(l,w)
+	sock.sendall(text)
+	sock.sendall(b"<ENDMSG>")
+ 
+def feed(delay, frame):
+	while True:
+		sleep(delay)
+		try:
+			send_img(frame)
+		except:
+			print("no connection")
+			try:
+				connect()
+			except:
+				time.sleep(1)
+
+   
+#process an image
