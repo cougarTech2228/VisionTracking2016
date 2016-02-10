@@ -104,7 +104,7 @@ class VideoThread(threading.Thread):
             strongest = max(sums) 
             if sums[0] == strongest :
                 segments = segments[:2]
-            elif sums[-1] == strongest
+            elif sums[-1] == strongest :
                 segments = segments[-2:]
             else :
                 ix = sums.index(strongest)
