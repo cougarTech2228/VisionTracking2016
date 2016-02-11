@@ -32,7 +32,13 @@ class VideoThread(threading.Thread):
         self.showsig = False
         self.showback = False
         self.showdiff = False
+        self.showr = False
+        self.showg = False
+        self.showb = False
+        self.showm = False
         self.verbose = False
+        self.testmode = False
+        self.showfound = True
 
     def run(self):
         while True :
@@ -58,8 +64,7 @@ class VideoThread(threading.Thread):
                         pickle.dump(back, f)
                     continue
             else :
-                # cv2.waitKey(1) 
-                pass
+                cv2.waitKey(1) # needed to do any display!
 
     def process(self):
         global offsetX, offsetY
@@ -68,23 +73,33 @@ class VideoThread(threading.Thread):
         # grab a single row of the diff image
         # cross-correlation with self should yield
         # a strong dip at the horizontal shift.
-        self.diff = cv2.subtract(sig, back) # could do the diff in C code.
+        if self.testmode :
+            self.diff = sig # np.array(sig, dtype="int16") # test with white on black target
+        else :
+            self.diff = cv2.subtract(sig, back) # could do the diff in C code.
         # next method is much faster (if it works)
-        if False : 
+        if True : 
             bdiff, gdiff, rdiff = [self.diff[:,:,i] for i in range(3)] #lightweight
         else :
             bdiff, gdiff, rdiff = cv2.split(self.diff) # not sure what split does internally
         
-        mono_diff = cv2.subtract(gdiff, rdiff)
+        if self.testmode :
+            self.mono = mono_diff = bdiff/3 + gdiff/3 + rdiff/3
+        else :
+            mono_diff = cv2.subtract(gdiff, rdiff)
         vsum = np.sum(mono_diff, axis=0)
         
-        #cv2.imshow("gdiff", gdiff)
-        #cv2.imshow("rdiff", rdiff)
-        #cv2.imshow("bdiff", bdiff)
-        #cv2.imshow("mono", mono_diff)
+        if self.showr :
+            cv2.imshow("rdiff", rdiff)
+        if self.showg :
+            cv2.imshow("gdiff", gdiff)
+        if self.showb :
+            cv2.imshow("bdiff", bdiff)
+        if self.showm :
+            cv2.imshow("mono", mono_diff)
     
         #constant to filter peaks in vsum (middle of range)
-        threshold = (np.max(vsum) - np.min(vsum)) / 2 
+        threshold = (np.max(vsum) + np.min(vsum)) / 2 
     
         search = True #is loop if looking for a peak
         segments = [] #peaks collapsed to line segments
@@ -104,6 +119,8 @@ class VideoThread(threading.Thread):
                         # each segment is the TOTAL sum in the peak, plus the start and end pixel
                         segments.append((peaksum, (peakstart, peakend)))
                         break
+
+        self.rawfound = len(segments)
                 
         # we will VERY often get more than 2.. camera might see 6!!
         # find two peaks next to each other of sensible separation and strength.
@@ -123,11 +140,12 @@ class VideoThread(threading.Thread):
                     segments = segments[ix : ix + 2]
                 else :
                     segments = segments[ix - 1 : ix + 1]
+        
         if len(segments) == 2 :
             peaks = [sum(s[1])/2 for s in segments]
 
             #distance from the center of the image tot the center of the target, in pixels
-            offsetX = sum(peaks)/2 - WIDTH/2
+            self.offsetX = sum(peaks)/2 - WIDTH/2
         
             #gap in pixels between the center of two hills
             gap = peaks[1] - peaks[0]
@@ -136,18 +154,25 @@ class VideoThread(threading.Thread):
         
             state = 0 #state of the hsum scanner
             hmax = np.max(hsum)
-            thresholds = (hmax/10, hmax/2) #thresholds 
-            points = [] #[v-bars, h-bar, bottom]
+            if False : 
+                self.offsetY = hsum.tolist().index(hmax)-HEIGHT/2
+                self.display(True)
 
-            for i, v in enumerate(hsum):
-                #above target
-                if state == 0:
-                    if v > thresholds[0]:
-                        state = 1
-                        points.append(i)
-    
+            rowsums = enumerate(hsum)
 
-                #vertical bars
+            # now find the horizontal bar
+            thresh = hmax * 0.8
+            for row, rsum in rowsums :
+                if rsum > thresh :
+                    start = row
+                    for row, rsum in rowsums :
+                        if rsum < thresh :
+                            end = row
+                            self.offsetY = ((start + end)-HEIGHT)/2
+                            self.display(True)
+                            return
+            self.display(False)
+            """
                 elif state == 1:
                     if v > thresholds[1]:
                         state = 2
@@ -171,6 +196,7 @@ class VideoThread(threading.Thread):
                 if self.verbose :
                     print("ERROR: " + str(len(points)) + " hsum points instead of 3?")
                 self.display(False)
+            """
         else:
             if self.verbose :
                 print("ERROR: found " + str(len(segments)) + " vsum segments (vertical bars). Expected 2.")
@@ -178,17 +204,24 @@ class VideoThread(threading.Thread):
 
         
     def display(self, found):
+        if not self.showfound :
+            return
         disp_img = sig.copy()
     
         if(found):
-            cv2.line(disp_img,(WIDTH/2 + offsetX,0),(WIDTH/2 + offsetX,HEIGHT),(0,0,255),3)
-            cv2.line(disp_img,(0,HEIGHT - offsetY),(WIDTH, HEIGHT - offsetY),(0,0,255),3)
+            cv2.line(disp_img,(WIDTH/2 + self.offsetX,0),(WIDTH/2 + self.offsetX,HEIGHT),(0,0,255),3)
+            cv2.line(disp_img,(0, HEIGHT/2 +self.offsetY),(WIDTH, HEIGHT/2 + self.offsetY),(0,0,255),3)
         else:
             cv2.putText(disp_img, "?", (WIDTH/3, HEIGHT/3), cv2.FONT_HERSHEY_PLAIN, 4, (0,0,255),4)    
     
         cv2.imshow("display",disp_img)
 
 vt = VideoThread()
+
+# vt.showfound = False
+vt.showm = True
+vt.testmode = True
+
 vt.start()
 
 import socket
