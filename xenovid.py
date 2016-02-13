@@ -205,7 +205,7 @@ class VideoThread(threading.Thread):
 
 vt = VideoThread()
 
-# vt.showfound = False
+vt.showfound = False
 
 vt.start()
 
@@ -239,4 +239,6 @@ def feed(delay, frame):
                 time.sleep(1)
 
    
-#process an image
+#process an image   
+import code
+code.interact(local=locals())

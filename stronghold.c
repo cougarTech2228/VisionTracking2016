@@ -257,7 +257,7 @@ void embedpy()
   Py_Initialize();
   PyImport_AppendInittab("_ct",init_cougartech);
   PyEval_InitThreads();
-  PyRun_SimpleString("execfile('xenovid.py') ; import code; code.interact()\n");
+  PyRun_SimpleString("execfile('xenovid.py')"); // ; import code; code.interact()\n");
   Py_Finalize();
 }
 
