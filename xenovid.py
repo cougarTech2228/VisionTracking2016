@@ -183,9 +183,10 @@ class VideoThread(threading.Thread):
             if self.verbose :
                 print("missed horizontal bar! x", self.offsetX)
                 sd.putNumber('boneX', self.offsetX)
+                sd.putNumber('boneFound', 0)
         else:
             self.display(False)
-            sd.putNumber('boneFound', 1)
+            sd.putNumber('boneFound', 0)
             if self.verbose :
                 print("ERROR: found no vertical segments")
 
