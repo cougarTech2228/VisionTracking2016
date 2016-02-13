@@ -24,6 +24,9 @@ ion()
 from cv2 import cv
 from time import time
 from networktables import NetworkTable
+NetworkTable.setIPAddress("10.22.28.20")
+NetworkTable.setClientMode()
+NetworkTable.initialize()
 sd = NetworkTable.getTable("SmartDashboard")
 
 class VideoThread(threading.Thread):
