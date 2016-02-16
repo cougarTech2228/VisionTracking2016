@@ -6,6 +6,7 @@ import _ct
 a,b,vid_conf_addr = _ct.addrs()
 from ctypes import c_ubyte
 import copy
+from py import keys
 
 from stronghold import WIDTH, HEIGHT, vidconf_s
 vc = vidconf_s.from_address(vid_conf_addr)
@@ -43,8 +44,9 @@ class VideoThread(threading.Thread):
         self.showm = False
         self.verbose = False
         self.testmode = False
-        self.showfound = True
+        self.showfound = False
         self.minthresh = 1000
+        sd.putBoolean(keys.KEY_VISION, False)
 
     def run(self):
         while True :
@@ -116,14 +118,16 @@ class VideoThread(threading.Thread):
         for col, csum in colsums :
             if csum > self.threshold : # we found a column over threshold
                 peaksum = csum
+                peaksumc = csum*col
                 peakstart = col
                 for col, csum in colsums : # continue iterating over the columns...
                     if csum > self.threshold :
                         peaksum += csum
+                        peaksumc += csum*col
                     else : # we have fallen below threshold again. peak has been found.
                         peakend = col - 1
                         # each segment is the TOTAL sum in the peak, plus the start and end pixel
-                        segments.append((peaksum, (peakstart, peakend)))
+                        segments.append((peaksum, (peakstart, peakend), float(peaksumc)/peaksum))
                         break
 
         self.rawfound = len(segments)
@@ -148,7 +152,8 @@ class VideoThread(threading.Thread):
                     segments = segments[ix - 1 : ix + 1]
         
         if len(segments) == 2 :
-            peaks = [sum(s[1])/2 for s in segments]
+            # peaks = [sum(s[1])/2 for s in segments]
+            peaks = [s[2] for s in segments]
 
             #distance from the center of the image tot the center of the target, in pixels
             self.offsetX = sum(peaks)/2 - WIDTH/2
@@ -178,18 +183,18 @@ class VideoThread(threading.Thread):
                             self.display(True)
                             if self.verbose :
                                 print("found x y", self.offsetX, self.offsetY )
-                            sd.putNumber('boneX', self.offsetX)
-                            sd.putNumber('boneY', self.offsetY)
-                            sd.putNumber('boneFound', 1)
+                            sd.putNumber(keys.KEY_X, self.offsetX)
+                            sd.putNumber(keys.KEY_Y, self.offsetY)
+                            sd.putBoolean(keys.KEY_FOUND, True)
                             return
             self.display(False)
             if self.verbose :
                 print("missed horizontal bar! x", self.offsetX)
-                sd.putNumber('boneX', self.offsetX)
-                sd.putNumber('boneFound', 0)
+                sd.putNumber(keys.KEY_X, self.offsetX)
+                sd.putBoolean(keys.KEY_FOUND, False)
         else:
             self.display(False)
-            sd.putNumber('boneFound', 0)
+            sd.putBoolean(keys.KEY_FOUND, False)
             if self.verbose :
                 print("ERROR: found no vertical segments")
 
@@ -198,10 +203,12 @@ class VideoThread(threading.Thread):
         if not self.showfound :
             return
         disp_img = sig.copy()
+        offX = int(self.offsetX)
+        offY = int(self.offsetY)
     
         if(found):
-            cv2.line(disp_img,(WIDTH/2 + self.offsetX,0),(WIDTH/2 + self.offsetX,HEIGHT),(0,0,255),3)
-            cv2.line(disp_img,(0, HEIGHT/2 +self.offsetY),(WIDTH, HEIGHT/2 + self.offsetY),(0,0,255),3)
+            cv2.line(disp_img,(WIDTH/2 + offX,0),(WIDTH/2 + offX,HEIGHT),(0,0,255),3)
+            cv2.line(disp_img,(0, HEIGHT/2 +offY),(WIDTH, HEIGHT/2 + offY),(0,0,255),3)
         else:
             cv2.putText(disp_img, "?", (WIDTH/3, HEIGHT/3), cv2.FONT_HERSHEY_PLAIN, 4, (0,0,255),4)    
     
@@ -209,7 +216,8 @@ class VideoThread(threading.Thread):
 
 vt = VideoThread()
 
-vt.showfound = False
+vt.testmode = True
+vt.showfound = True
 
 vt.start()
 
