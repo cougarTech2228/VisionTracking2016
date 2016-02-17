@@ -50,7 +50,9 @@ class VideoThread(threading.Thread):
 
     def run(self):
         while True :
-            self.process()            
+          vc.led_enabled = sd.getBoolean(keys.KEY_VISION)
+          if vc.led_enabled :
+            self.process()     
 
             if self.showsig :
                 cv2.imshow("sig", sig)
@@ -75,7 +77,6 @@ class VideoThread(threading.Thread):
                 cv2.waitKey(1) # needed to do any display!
 
     def process(self):
-        global offsetX, offsetY
         # estimate the row and column shift..
         # look at diff of previous back and current back
         # grab a single row of the diff image
@@ -179,7 +180,7 @@ class VideoThread(threading.Thread):
                     for row, rsum in rowsums :
                         if rsum < thresh :
                             end = row
-                            self.offsetY = ((start + end)-HEIGHT)/2
+                            self.offsetY = (float(start + end)-HEIGHT)/2
                             self.display(True)
                             if self.verbose :
                                 print("found x y", self.offsetX, self.offsetY )
@@ -203,10 +204,10 @@ class VideoThread(threading.Thread):
         if not self.showfound :
             return
         disp_img = sig.copy()
-        offX = int(self.offsetX)
-        offY = int(self.offsetY)
     
         if(found):
+            offX = int(self.offsetX)
+            offY = int(self.offsetY)
             cv2.line(disp_img,(WIDTH/2 + offX,0),(WIDTH/2 + offX,HEIGHT),(0,0,255),3)
             cv2.line(disp_img,(0, HEIGHT/2 +offY),(WIDTH, HEIGHT/2 + offY),(0,0,255),3)
         else:

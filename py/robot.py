@@ -13,7 +13,6 @@ class Shooter :
         self.kicker = wpilib.Servo(ports["kicker"])
 
 class MyRobot(wpilib.IterativeRobot):
-    
     def robotInit(self):
         """
         This function is called upon program startup and
@@ -31,25 +30,41 @@ class MyRobot(wpilib.IterativeRobot):
         self.dash.putNumber(keys.KEY_ANG, 0.0)
 
     def autonomousInit(self) :
+        print("autonomous init called")
         self.dash.putBoolean(keys.KEY_VISION, True)
 
     def autonomousPeriodic(self):
         """This function is called periodically during autonomous."""
         try :
             found = self.dash.getBoolean(keys.KEY_FOUND)
+            if found :
+                xoff = self.dash.getNumber(keys.KEY_X)
+                self.left_talons[0].set(xoff/120.)
+            else :
+                self.left_talons[0].set(0.)
         except :
             pass
 
     def teleopInit(self) :
+        print("teleop init called")
         self.dash.putBoolean(keys.KEY_VISION, False)
 
     def teleopPeriodic(self):
         """This function is called periodically during operator control."""
         self.dash.putBoolean(keys.KEY_VISION, self.joy.getRawButton(3)) 
+        self.left_talons[0].set(self.joy.getAxis(0))
+
+    def disabledInit(self) :
+        print("disabled init called")
+        self.dash.putBoolean(keys.KEY_VISION, False)
 
     def disabledPeriodic(self):
-        """This function is called periodically during test mode."""
+        """This function is called periodically while disabled."""
         pass
+
+    def testInit(self) :
+        print("test init called")
+        self.dash.putBoolean(keys.KEY_VISION, False)
 
     def testPeriodic(self):
         """This function is called periodically during test mode."""
