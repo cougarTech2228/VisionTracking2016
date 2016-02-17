@@ -218,7 +218,10 @@ class VideoThread(threading.Thread):
 vt = VideoThread()
 
 vt.testmode = True
-vt.showfound = True
+if vt.testmode :
+    vt.showfound = True
+    sd.putBoolean(keys.KEY_VISION, True)
+    vc.invert = False
 
 vt.start()
 
