@@ -19,8 +19,7 @@ class MyRobot(wpilib.IterativeRobot):
         should be used for any initialization code.
         """
         self.joy = wpilib.Joystick(0)
-        self.right_talons = [wpilib.CANTalon(i) for i in (1,2)]
-        self.left_talons = [wpilib.CANTalon(i) for i in (3,4)]
+        self.SRX = [wpilib.CANTalon(i) for i in range(4)]
         self.shooter = Shooter(angle=8, left=5, right=6, sonar=0, kicker=0)
         self.dash = NetworkTable.getTable("SmartDashboard")
         self.dash.putBoolean(keys.KEY_VISION, False)
@@ -35,15 +34,17 @@ class MyRobot(wpilib.IterativeRobot):
 
     def autonomousPeriodic(self):
         """This function is called periodically during autonomous."""
-        try :
-            found = self.dash.getBoolean(keys.KEY_FOUND)
-            if found :
-                xoff = self.dash.getNumber(keys.KEY_X)
-                self.left_talons[0].set(xoff/120.)
-            else :
-                self.left_talons[0].set(0.)
-        except :
-            pass
+        self.move_vel(*self.fwd_turn_from_vision())
+
+    def fwd_turn_from_vision(self) :
+        found = self.dash.getBoolean(keys.KEY_FOUND)
+        if found :
+            fwd = -self.dash.getNumber(keys.KEY_Y)/120.
+            turn = -self.dash.getNumber(keys.KEY_X)/160.
+        else :
+            fwd = 0.
+            turn = 0.
+        return fwd, turn
 
     def teleopInit(self) :
         print("teleop init called")
@@ -51,8 +52,17 @@ class MyRobot(wpilib.IterativeRobot):
 
     def teleopPeriodic(self):
         """This function is called periodically during operator control."""
-        self.dash.putBoolean(keys.KEY_VISION, self.joy.getRawButton(3)) 
-        self.left_talons[0].set(self.joy.getAxis(0))
+        vision = self.joy.getRawButton(3)
+        self.dash.putBoolean(keys.KEY_VISION, vision)
+        if vision :
+            fwd, turn = self.fwd_turn_from_vision()
+        else :
+            fwd, turn = self.joy.getAxis(1), self.joy.getAxis(0)
+        self.move_vel(fwd, turn)
+
+    def move_vel(self, fwd, turn) : 
+        self.SRX[0].set(0.5*fwd + 0.5*turn)
+        self.SRX[3].set(0.5*fwd - 0.5*turn)
 
     def disabledInit(self) :
         print("disabled init called")

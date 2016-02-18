@@ -10,6 +10,7 @@ from py import keys
 
 from stronghold import WIDTH, HEIGHT, vidconf_s
 vc = vidconf_s.from_address(vid_conf_addr)
+vc.on_time = 5000000 # units are nanoseconds
 
 Image=(((c_ubyte*3)*WIDTH)*HEIGHT)
 from numpy.ctypeslib import as_array
@@ -217,11 +218,8 @@ class VideoThread(threading.Thread):
 
 vt = VideoThread()
 
-vt.testmode = True
-if vt.testmode :
-    vt.showfound = True
-    sd.putBoolean(keys.KEY_VISION, True)
-    vc.invert = False
+vt.showfound = True
+sd.putBoolean(keys.KEY_VISION, True)
 
 vt.start()
 
