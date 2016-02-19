@@ -11,6 +11,7 @@ from py import keys
 from stronghold import WIDTH, HEIGHT, vidconf_s
 vc = vidconf_s.from_address(vid_conf_addr)
 vc.on_time = 15000000 # units are nanoseconds. 
+vc.led_enabled = False
 # frame time is 30 milliseconds, so make it smaller than that.
 
 Image=(((c_ubyte*3)*WIDTH)*HEIGHT)
@@ -49,12 +50,25 @@ class VideoThread(threading.Thread):
         self.showfound = False
         self.minthresh = 1000
         sd.putBoolean(keys.KEY_VISION, False)
+        self.picstotake = 200
+        self.dumpfile = open("diffs.np","w")
+        self.sigsfile = open("sigs.np","w")
+        self.backsfile = open("backs.np","w")
 
     def run(self):
         while True :
           vc.led_enabled = sd.getBoolean(keys.KEY_VISION)
           if vc.led_enabled :
             self.process()     
+            if self.picstotake :
+                pickle.dump(self.diff, self.dumpfile)
+                pickle.dump(sig, self.sigsfile)
+                pickle.dump(back, self.backsfile)
+                self.picstotake -= 1
+                if not self.picstotake :
+                    self.dumpfile.close()
+                    self.sigsfile.close()
+                    self.backsfile.close()
 
             if self.showsig :
                 cv2.imshow("sig", sig)
@@ -219,9 +233,9 @@ class VideoThread(threading.Thread):
 
 vt = VideoThread()
 
-vt.showfound = True
-vt.showdiff = True
-sd.putBoolean(keys.KEY_VISION, True)
+#vt.showfound = True
+#vt.showdiff = True
+#sd.putBoolean(keys.KEY_VISION, True)
 
 vt.start()
 
