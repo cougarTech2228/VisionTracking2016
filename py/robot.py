@@ -57,12 +57,15 @@ class MyRobot(wpilib.IterativeRobot):
         if vision :
             fwd, turn = self.fwd_turn_from_vision()
         else :
-            fwd, turn = self.joy.getAxis(1), self.joy.getAxis(0)
+            fwd, turn = self.joy.getAxis(1), -self.joy.getAxis(0)
         self.move_vel(fwd, turn)
 
     def move_vel(self, fwd, turn) : 
-        self.SRX[0].set(0.5*fwd + 0.5*turn)
-        self.SRX[3].set(0.5*fwd - 0.5*turn)
+        r,l = 0.5*fwd + 0.5*turn, 0.5*fwd - 0.5*turn
+        r = max(min(0.25, r), -0.25)
+        l = max(min(0.25, l), -0.25)
+        self.SRX[0].set(r)
+        self.SRX[3].set(l)
 
     def disabledInit(self) :
         print("disabled init called")

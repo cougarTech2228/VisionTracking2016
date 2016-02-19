@@ -10,7 +10,8 @@ from py import keys
 
 from stronghold import WIDTH, HEIGHT, vidconf_s
 vc = vidconf_s.from_address(vid_conf_addr)
-vc.on_time = 5000000 # units are nanoseconds
+vc.on_time = 15000000 # units are nanoseconds. 
+# frame time is 30 milliseconds, so make it smaller than that.
 
 Image=(((c_ubyte*3)*WIDTH)*HEIGHT)
 from numpy.ctypeslib import as_array
@@ -93,9 +94,9 @@ class VideoThread(threading.Thread):
         if self.testmode :
             self.mono = mono_diff = bdiff/3 + gdiff/3 + rdiff/3
         else :
-            mono_diff = cv2.subtract(gdiff, rdiff)
+            self.mono = mono_diff = cv2.subtract(gdiff, rdiff)
 
-        vsum = np.sum(mono_diff, axis=0)
+        self.vsum = vsum = np.sum(mono_diff, axis=0)
         
         if self.showr :
             cv2.imshow("rdiff", rdiff)
@@ -219,6 +220,7 @@ class VideoThread(threading.Thread):
 vt = VideoThread()
 
 vt.showfound = True
+vt.showdiff = True
 sd.putBoolean(keys.KEY_VISION, True)
 
 vt.start()
