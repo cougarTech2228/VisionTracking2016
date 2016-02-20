@@ -39,8 +39,8 @@ class MyRobot(wpilib.IterativeRobot):
     def fwd_turn_from_vision(self) :
         found = self.dash.getBoolean(keys.KEY_FOUND)
         if found :
-            fwd = -self.dash.getNumber(keys.KEY_Y)/120.
-            turn = -self.dash.getNumber(keys.KEY_X)/160.
+            fwd = self.dash.getNumber(keys.KEY_Y)/100.
+            turn = -self.dash.getNumber(keys.KEY_X)/320.
         else :
             fwd = 0.
             turn = 0.
@@ -52,12 +52,18 @@ class MyRobot(wpilib.IterativeRobot):
 
     def teleopPeriodic(self):
         """This function is called periodically during operator control."""
-        vision = self.joy.getRawButton(3)
-        self.dash.putBoolean(keys.KEY_VISION, vision)
-        if vision :
+        if self.joy.getRawButton(3) :
+            self.vision = True
+            self.dash.putBoolean(keys.KEY_VISION, True)
+        elif self.joy.getRawButton(4) :
+            self.vision = False
+            self.dash.putBoolean(keys.KEY_VISION, False)
+        else :
+            self.vision = self.dash.getBoolean(keys.KEY_VISION)
+        if self.vision :
             fwd, turn = self.fwd_turn_from_vision()
         else :
-            fwd, turn = self.joy.getAxis(1), -self.joy.getAxis(0)
+            fwd, turn = -self.joy.getAxis(1), -self.joy.getAxis(0)
         self.move_vel(fwd, turn)
 
     def move_vel(self, fwd, turn) : 
