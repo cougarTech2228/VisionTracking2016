@@ -2,24 +2,39 @@
 import os, sys
 sys.path.append(os.getcwd())
 import numpy as np
-import _ct
-a,b,vid_conf_addr = _ct.addrs()
 from ctypes import c_ubyte
 import copy
 from py import keys
 
 from stronghold import WIDTH, HEIGHT, vidconf_s
-vc = vidconf_s.from_address(vid_conf_addr)
+Image=(((c_ubyte*3)*WIDTH)*HEIGHT)
+from numpy.ctypeslib import as_array
+
+try :
+    # are we running embedded?
+    import _ct # cougar tech C threads
+    a,b,vid_conf_addr = _ct.addrs()
+    vc = vidconf_s.from_address(vid_conf_addr)
+    ia = Image.from_address(a)
+    ib = Image.from_address(b)
+except ImportError :
+    # we are running with no c code running the camera
+    _ct = None
+    vc = vidconf_s()
+    ia = Image()
+    ib = Image()
+    import sys
+    if len(sys.argv) == 2 :
+        testdat = sys.argv[1]
+    else :
+        testdat = "./testdata/rally1/"
+
+sig = as_array(ia)
+back = as_array(ib)
+
 vc.on_time = 15000000 # units are nanoseconds. 
 vc.led_enabled = False
 # frame time is 30 milliseconds, so make it smaller than that.
-
-Image=(((c_ubyte*3)*WIDTH)*HEIGHT)
-from numpy.ctypeslib import as_array
-ia = Image.from_address(a)
-ib = Image.from_address(b)
-sig = as_array(ia)
-back = as_array(ib)
 
 import cv2, threading
 import cPickle as pickle
@@ -90,10 +105,23 @@ class VideoThread(threading.Thread):
                 cv2.imshow("diff", self.diff) 
             
             if self.watch_keys :
+                global ix
                 key = cv2.waitKey(20)
                 if key == -1:
                     continue
-                if key == ord('s') or key == ord('S'):
+                if key == ord('n') :
+                    ix += 1
+                    if ix == len(sigs) : 
+                        ix = 0
+                    sig[:,:,:] = sigs[ix]
+                    back[:,:,:] = backs[ix]
+                elif key == ord('b') :
+                    if ix == 0 :
+                        ix = len(sigs) 
+                    ix -= 1
+                    sig[:,:,:] = sigs[ix]
+                    back[:,:,:] = backs[ix]
+                elif key == ord('s') or key == ord('S'):
                     with open("diff.np", "w") as f:
                         pickle.dump(self.diff, f)
                     with open("sig.np", "w") as f:
@@ -259,9 +287,30 @@ class VideoThread(threading.Thread):
 
 vt = VideoThread()
 
-#vt.showfound = True
-#vt.showdiff = True
-#sd.putBoolean(keys.KEY_VISION, True)
+
+def allimgs_from(filename) :
+    f = open(filename)
+    imgs = []
+    while True :
+        try :
+            imgs.append(pickle.load(f))
+        except :
+            break
+    return imgs
+
+if _ct == None :
+    vt.showfound = True
+    vt.showdiff = True
+    vt.showback = True
+    vt.watch_keys = True
+    sd.putBoolean(keys.KEY_VISION, True)
+    import pickle
+    ix = 0
+    sigs = allimgs_from(testdat+"sigs.np")
+    backs = allimgs_from(testdat+"backs.np")
+    sig[:,:,:]=sigs[ix]
+    back[:,:,:] = backs[ix]
+  
 
 vt.start()
 
@@ -296,5 +345,6 @@ def feed(delay, frame):
 
    
 #process an image   
-import code
-code.interact(local=locals())
+if _ct :
+    import code
+    code.interact(local=locals())
