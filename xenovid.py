@@ -28,7 +28,7 @@ ion()
 from cv2 import cv
 from time import time
 from networktables import NetworkTable
-NetworkTable.setIPAddress("10.22.28.20")
+NetworkTable.setIPAddress("roboRIO-2228-FRC.local")
 NetworkTable.setClientMode()
 NetworkTable.initialize()
 sd = NetworkTable.getTable("SmartDashboard")
