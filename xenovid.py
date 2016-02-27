@@ -28,7 +28,7 @@ ion()
 from cv2 import cv
 from time import time
 from networktables import NetworkTable
-NetworkTable.setIPAddress("10.22.28.20")
+NetworkTable.setIPAddress("roboRIO-2228-FRC.local")
 NetworkTable.setClientMode()
 NetworkTable.initialize()
 sd = NetworkTable.getTable("SmartDashboard")
@@ -51,9 +51,17 @@ class VideoThread(threading.Thread):
         self.minthresh = 1000
         sd.putBoolean(keys.KEY_VISION, False)
         self.picstotake = 200
-        self.dumpfile = open("diffs.np","w")
-        self.sigsfile = open("sigs.np","w")
-        self.backsfile = open("backs.np","w")
+        self.dumpfile = open("diffs.np","a")
+        self.sigsfile = open("sigs.np","a")
+        self.backsfile = open("backs.np","a")
+
+    def reopen(self) :
+        if self.dumpfile.closed :
+            self.dumpfile = open("diffs.np","a")
+        if self.sigsfile.closed :
+            self.sigsfile = open("sigs.np","a")
+        if self.backsfile.closed :
+            self.backsfile = open("backs.np","a")
 
     def run(self):
         while True :
@@ -61,6 +69,7 @@ class VideoThread(threading.Thread):
           if vc.led_enabled :
             self.process()     
             if self.picstotake :
+                self.reopen()
                 pickle.dump(self.diff, self.dumpfile)
                 pickle.dump(sig, self.sigsfile)
                 pickle.dump(back, self.backsfile)
@@ -91,6 +100,16 @@ class VideoThread(threading.Thread):
                     continue
             else :
                 cv2.waitKey(1) # needed to do any display!
+          else :
+              if not self.dumpfile.closed :
+                  self.dumpfile.flush()
+                  self.dumpfile.close()
+              if not self.sigsfile.closed :
+                  self.sigsfile.flush()
+                  self.sigsfile.close()
+              if not self.backsfile.closed :
+                  self.backsfile.flush()
+                  self.backsfile.close()
 
     def process(self):
         # estimate the row and column shift..
