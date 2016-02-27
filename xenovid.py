@@ -50,7 +50,8 @@ class VideoThread(threading.Thread):
         self.showfound = False
         self.minthresh = 1000
         sd.putBoolean(keys.KEY_VISION, False)
-        self.picstotake = 200
+        sd.putNumber(keys.KEY_NPIX, 0)
+        self.picstotake = 0
         self.dumpfile = open("diffs.np","w")
         self.sigsfile = open("sigs.np","w")
         self.backsfile = open("backs.np","w")
@@ -58,6 +59,8 @@ class VideoThread(threading.Thread):
     def run(self):
         while True :
           vc.led_enabled = sd.getBoolean(keys.KEY_VISION)
+          if not self.picstotake :
+            self.picstotake = sd.getNumber(keys.KEY_NPIX)
           if vc.led_enabled :
             self.process()     
             if self.picstotake :
