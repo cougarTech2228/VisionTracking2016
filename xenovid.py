@@ -50,7 +50,8 @@ class VideoThread(threading.Thread):
         self.showfound = False
         self.minthresh = 1000
         sd.putBoolean(keys.KEY_VISION, False)
-        self.picstotake = 200
+        sd.putNumber(keys.KEY_NPIX, 0)
+        self.picstotake = 0
         self.dumpfile = open("diffs.np","a")
         self.sigsfile = open("sigs.np","a")
         self.backsfile = open("backs.np","a")
@@ -66,6 +67,9 @@ class VideoThread(threading.Thread):
     def run(self):
         while True :
           vc.led_enabled = sd.getBoolean(keys.KEY_VISION)
+          if not self.picstotake :
+            self.picstotake = sd.getNumber(keys.KEY_NPIX)
+            sd.putNumber(keys.KEY_NPIX, 0)
           if vc.led_enabled :
             self.process()     
             if self.picstotake :
@@ -74,11 +78,10 @@ class VideoThread(threading.Thread):
                 pickle.dump(sig, self.sigsfile)
                 pickle.dump(back, self.backsfile)
                 self.picstotake -= 1
-                if not self.picstotake :
-                    self.dumpfile.close()
-                    self.sigsfile.close()
-                    self.backsfile.close()
+                #if not self.picstotake :
+                    #self.flush_close()
 
+            # only used when running offline with display
             if self.showsig :
                 cv2.imshow("sig", sig)
             if self.showback :
@@ -101,15 +104,19 @@ class VideoThread(threading.Thread):
             else :
                 cv2.waitKey(1) # needed to do any display!
           else :
-              if not self.dumpfile.closed :
-                  self.dumpfile.flush()
-                  self.dumpfile.close()
-              if not self.sigsfile.closed :
-                  self.sigsfile.flush()
-                  self.sigsfile.close()
-              if not self.backsfile.closed :
-                  self.backsfile.flush()
-                  self.backsfile.close()
+              # if not doing vision:
+              self.flush_close()
+
+    def flush_close(self) :
+        if not self.dumpfile.closed :
+            self.dumpfile.flush()
+            self.dumpfile.close()
+        if not self.sigsfile.closed :
+            self.sigsfile.flush()
+            self.sigsfile.close()
+        if not self.backsfile.closed :
+            self.backsfile.flush()
+            self.backsfile.close()
 
     def process(self):
         # estimate the row and column shift..
