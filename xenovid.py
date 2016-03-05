@@ -188,6 +188,7 @@ class VideoThread(threading.Thread):
 
         for col, csum in colsums :
             if csum > self.threshold : # we found a column over threshold
+                # start accumulating 
                 peaksum = csum
                 peaksumc = csum*col
                 peakstart = col
@@ -202,12 +203,49 @@ class VideoThread(threading.Thread):
                         break
 
         self.rawfound = len(segments)
-                
-        # we will VERY often get more than 2.. camera might see 6!!
+
+        # XXX Now we have some candidate columns that we think may be targets.
+        # How do we rule them out?
+        # start a new empty list of "good segments"
+        # for each segment just found:
+            # we can look up and down the center column of the segment.
+            # it should have a single stretch that goes uniformly higher than the rest.
+            # find the start row and stop row of this stretch.
+            # segments that don't seem right? don't waste more time on them.
+            # if we didn't flag that segment as bad yet...
+            # look to the right and left of the lower end of the stretch we found above.
+            # find the horizontal bar that could connect the bottom of that vertical stretch
+            # to a neigboring peak to the right or to the left. How high is the horizontal
+            # bar where it leaves the bottom of the upright?
+            # (don't worry about tracing it all the way, just find that the 
+            # horizontal bar exists on one side or the other of the bottom.
+            # We made it to here? append this peak to our list of good segments..
+            # remembering:
+                # which direction the bar exited at the bottom
+                # how high the bar was when it exited.
+                # how long the stretch was
+                # etc etc
+
+        # XXX this needs improvement.
+        # we will VERY often get more than 2 peaks. camera might see 6!!
+        # XXX Dr Moore's not-so-smart algorithm was..
         # find two peaks next to each other of sensible separation and strength.
         # we want the two strongest ones?
         # actually, we pick the strongest peak
         # and its strongest neighbor.
+
+        # but...
+        # after implementing the above code that builds a good segment list,
+        # we have an improved list and more information.
+        # We want to find neighboring peaks where the 
+        # horizontal bars point at each other.
+        # if there is only one pair of adjacent peaks that looks like this.. great.
+        # if we see two or three pairs of neighboring peaks that pass this test..
+        # we want to return the pair that has the greatest separation between segments.
+        # also, if we can return the ANGLE of the horizontal bar that would be good.
+        # the angle could simply be height difference divided by separation.
+        
+
         if len(segments) > 2 :  # if we DO get more than 2
             sums = [seg[0] for seg in segments] # just look at their strengths.
             strongest = max(sums) 
