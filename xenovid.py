@@ -227,10 +227,15 @@ class VideoThread(threading.Thread):
 						offsetY = (float(start + end)-HEIGHT)/2
 						targets.append(self.Target(offsetX, offsetY, width, v_threshold, h_threshold, (seg1, seg2), len(targets)))
 						break
-
+					
 			if len(targets) < 1:
+				#hopefully we found at least one target, if not, log a noah face
 				self.result(False,"=| Found 0 Targets. Found {0} Segments.".format(len(segments)))
 			else:
+				#if we found at least one target, find the one which is the widest
+				#since all the targets are the same size/distance from the camera
+				#this will give us the target which is most perpendicular to the robot
+				#aka. the one which is easiest to shoot at
 				selected = targets[0]			
 				for target in targets:
 					if target.width > selected.width:
@@ -238,17 +243,21 @@ class VideoThread(threading.Thread):
 				self.target = selected
 				self.result(True,"8) Selected Target: {0}/{1}".format(self.target.index, len(targets)))
 
+		#update the displays for debuging
 		utils.update(sig, back, diff, rdiff, gdiff, bdiff, mono_diff)
 		
 	def result(self, found, message="", code="?"):
-		self.found = found			
+		#updates display (crosshairs), console log, and net tables after vt.process anylises a frame
+		self.found = found		
 		utils.display(self.found,code)
 		utils.log(message)
 		if found:
+			#push the offsets to net tables and let the robo-rio know that you have found the target
 			sd.putNumber(keys.KEY_X, self.target.offsetX)
 			sd.putNumber(keys.KEY_Y, self.target.offsetY)
 			sd.putBoolean(keys.KEY_FOUND, True)
 		else:
+			#update net tables so the robo-rio knows that we cant see the target
 			sd.putBoolean(keys.KEY_FOUND, False)
 
 utils = Utils()
