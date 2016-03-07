@@ -91,6 +91,9 @@ class Utils:
 		execfile("xenovid.py")
 
 	def display(self, found, code=""):
+		#displays the current camera feed with 
+		#with crosshairs if the target is found
+		#and string <code> if it is not
 		if not self.show.found : return
 		
 		disp_img = sig.copy()
@@ -106,6 +109,8 @@ class Utils:
 		cv2.imshow("found",disp_img)
 
 	def update(self, sig, back, diff, r,g,b,mono):
+		#updates all the displays
+		#called by vt.process()
 		if sig is not None and self.show.sig:
 			cv2.imshow("sig",sig)
 		if back is not None and self.show.back:
@@ -122,32 +127,42 @@ class Utils:
 			cv2.imshow("mono",mono)
 
 	def log(self, message):
+		#logs a message, unless that message was the last on logged
+		#enabled/disabled by self.verbose
 		if self.verbose and self.last_logged != message: 
 			print(message)
 			self.last_logged = message
 
 class VideoThread(threading.Thread):
+	#main thread for image processing
 	def __init__(self):
 		threading.Thread.__init__(self)
-		self.daemon = True
-		self.halt = False
+		self.daemon = True	#not sure what this does
+		self.halt = False	#set to true to kill thread
 
 		self.Segment = namedtuple("Segment", ["start","end","center","area"])	
 		self.Target = namedtuple("Target", ["offsetX", "offsetY", "width", "v_threshold", "h_threshold", "segments", "index"])
 		sd.putBoolean(keys.KEY_VISION, False)
-
-		self.MIN_VERT_THRESH = 1500;
+		
+		self.MIN_VERT_THRESH = 1500 #minimum threshold for finding the vertical bars
 
 	def run(self):
+		#starts the image processing loop
+		#kills the thread when self.halt is set to true
 		while not self.halt:
+			#get enabled flag from net tables and update c variable
 			vc.led_enabled = sd.getBoolean(keys.KEY_VISION)
 			if vc.led_enabled :
+				#if net tables tells us to process the process
 				self.process()
 	
 	def process(self):
+		#processes images aquired by the c code
 		diff = cv2.subtract(sig, back) # could do the diff in C code.
 		bdiff, gdiff, rdiff = [diff[:,:,i] for i in range(3)]
-		mono_diff = cv2.subtract(gdiff, rdiff)
+		
+		#subtract the rdifff from the gdiff to get rid of motion artifacts
+		mono_diff = cv2.subtract(gdiff, rdiff) 
 
 		self.vsum = vsum = np.sum(mono_diff, axis=0)
 		v_threshold = (np.max(vsum) + np.min(vsum)) / 2 
