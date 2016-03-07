@@ -1,9 +1,9 @@
 # Echo server program
 import socket
-import msgpack
 import numpy
 from numpy import array, int16, uint8, clip
 import sys
+import cv2
 
 params = b'2295';
 
@@ -24,6 +24,8 @@ def listen():
         data = conn.recv(4096)
         if not data: break
         conn.sendall(params)
+        parse(data)
+        continue
         try:
             parse(data)
         except:
@@ -31,17 +33,8 @@ def listen():
     conn.close()
 
 
-import matplotlib
-
-matplotlib.use('TkAgg')
-import matplotlib.pyplot as plt
-
-plt.ion()
-plt.show()
-
-
 def parse(msg):
-    global buff, active, f
+    global buff, active, f, a
     dtype = uint8
 
     buff+=msg
@@ -61,18 +54,14 @@ def parse(msg):
         return
 
     s = data.split(b"<HEAD>")
-    array = numpy.fromstring(s[0], dtype=dtype )
+    a = numpy.fromstring(s[0], dtype=uint8 )
 
     l,w =s[1].split(b"#")
-    array = array.reshape(int(l), int(w))
+    a = a.reshape(int(l), int(w))
 
     if active:
-        print("plotting image")
-        plt.clf()
-        plt.imshow(array)
-        plt.draw()
-        plt.pause(.0001)
-        print("done plotting")
-
+        print(a)
+        cv2.imshow("found",a)
+        cv2.waitKey(10)
 listen()
 
