@@ -54,31 +54,39 @@ except:
 sd = NetworkTable.getTable("SmartDashboard")
 
 class Struct:
-    def __init__(self, **entries): self.__dict__.update(entries)
+	#useful one liner for creating struct like variables
+	#see declaration of Utils.show
+	def __init__(self, **entries): self.__dict__.update(entries)
 
 class Utils:
+	#class containing various extrenuous functions
+	#including those for displaying images
 	def __init__(self):
-		self.verbose = False	
-		self.show = Struct(
-			sig= False,
-			back= False,
-			diff= Struct(
-				r= False,
-				g= False,
-				b= False,
-				sum= False 
+		self.verbose = False	#print log messages to the console
+		self.show = Struct(	#object containing all image display flags
+			sig= False,		#display signal image
+			back= False,		#display back image
+			diff= Struct(		
+				r= False,	#display rdiff
+				g= False,	#display gdiff
+				b= False,	#display bdiff
+				sum= False 	#display diff
 				),
-			mono= False,
-			found= False)
-		self.last_logged = ""	
+			mono= False,		#display mono_diff
+			found= False)		#display crosshairs
+		self.last_logged = ""	#the last thing logged by Utils.log
 
-	def enable(self):	
+	def enable(self):
+		#enable the leds
 		sd.putBoolean(keys.KEY_VISION, True)
 
 	def disable(self):
+		#disable the leds
 		sd.putBoolean(keys.KEY_VISION, False)
 
 	def reload(self, hard=False):
+		#this is supposed to halt this file and re-exec it
+		#TODO fix this code
 		vt.halt = True
 		execfile("xenovid.py")
 
