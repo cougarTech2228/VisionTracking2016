@@ -1,2 +1,8 @@
 *.pyc
 *.swp
+stronghold
+stronghold.py
+stronghold.i
+stronghold.o
+stronghold.s
+
