@@ -6,6 +6,8 @@ from ctypes import c_ubyte
 from collections import namedtuple
 import copy
 from py import keys
+import socket
+from time import sleep
 
 from stronghold import WIDTH, HEIGHT, vidconf_s
 Image=(((c_ubyte*3)*WIDTH)*HEIGHT)
@@ -75,6 +77,7 @@ class Utils:
 			mono= False,		#display mono_diff
 			found= False)		#display crosshairs
 		self.last_logged = ""	#the last thing logged by Utils.log
+		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #socket client for remote viewer
 
 	def enable(self):
 		#enable the leds
@@ -133,6 +136,30 @@ class Utils:
 			print(message)
 			self.last_logged = message
 
+	def connect(self):
+		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.sock.connect(("192.168.7.1", 50007))
+	
+	def send_img(img) :
+		icop = array(img, dtype=uint8)
+		l, w = icop.shape
+		text = icop.tostring()
+		text = text + '<HEAD>{0}#{1}'.format(l,w)
+		self.sock.sendall(text)
+		self.sock.sendall(b"<ENDMSG>")
+	 
+	def feed(delay, frame):
+		while True:
+			sleep(delay)
+			try:
+				self.send_img(frame)
+			except:
+				print("no connection")
+				try:
+					self.connect()
+				except:
+					time.sleep(1)
+				
 class VideoThread(threading.Thread):
 	#main thread for image processing
 	def __init__(self):
@@ -264,34 +291,7 @@ utils = Utils()
 vt = VideoThread()
 vt.start()
 
-import socket
-from time import sleep
 
-def connect():
-	global sock
-	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	sock.connect(("192.168.7.1", 50007))
-
-def send_img(img) :
-	img = np.clip(img,0,255)
-	icop = array(img, dtype=uint8)
-	l, w = icop.shape
-	text = icop.tostring()
-	text = text + '<HEAD>{0}#{1}'.format(l,w)
-	sock.sendall(text)
-	sock.sendall(b"<ENDMSG>")
- 
-def feed(delay, frame):
-	while True:
-		sleep(delay)
-		try:
-			send_img(frame)
-		except:
-			print("no connection")
-			try:
-				connect()
-			except:
-				time.sleep(1)
 
 #process an image   
 if _ct :
