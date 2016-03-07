@@ -163,53 +163,66 @@ class VideoThread(threading.Thread):
 		
 		#subtract the rdifff from the gdiff to get rid of motion artifacts
 		mono_diff = cv2.subtract(gdiff, rdiff) 
-
+		
+		#verticaly sum the mono_diff, then find and appropriate threshold for locating peaks
 		self.vsum = vsum = np.sum(mono_diff, axis=0)
 		v_threshold = (np.max(vsum) + np.min(vsum)) / 2 
 		if v_threshold < self.MIN_VERT_THRESH:
 			v_threshold = self.MIN_VERT_THRESH
 
-		search = True 
-		segments = []
-
+		search = True 	#is the scanner looking for a peak (True), or the end of a peak (False)
+		segments = []	#list of self.Segment objects representing peaks in the vsum
+		
 		for x, value  in enumerate(vsum) :
 			if value > v_threshold and search: 
+				#if start of a peak
 				start = x
 				area = value
 				search = False
 			if value > v_threshold and not search:
+				#if inside of a peak
 				area += value
 			if value < v_threshold and not search:
+				#if end of a peak
 				end = x-1
 				segments.append(self.Segment(start, end, (start+end)/2, area))
 				search = True
 
+		#we have now found all the vertical bars (peaks/segments), time to look for targets
 		if len(segments) < 2:
+			#we need at least 2 segments
 			self.result(False,"=| Not Enough Segments. {0} Segments.".format(len(segments)))
 		elif len(segments) > 6:
+			#we should never find more then 6
 			self.result(False,"=| Too Many Segments. {0} Segments.".format(len(segments)))
 		else:
 			targets = []
+			
+			#iterate through each segment, and check for a target between it and a neighboring segment
 			for index, segment in enumerate(segments):
-				if index == len(segments) - 1: break
+				if index == len(segments) - 1: break 
 
 				seg1= segments[index]
 				seg2= segments[index+1]
 
-				offsetX = (seg1.center + seg2.center)/2 - WIDTH/2
+				#distance in pixels between center of camera view and center of target
+				offsetX = (seg1.center + seg2.center)/2 - WIDTH/2 
 
+				#horizontally sum the mono_diff between the two segments
 				hsum = np.sum(mono_diff[:, seg1.end : seg2.start], axis=1) 
 				width = abs(seg1.center - seg2.center)
 
-				search = True 
-				hmax = np.max(hsum)
-
-				h_threshold = hmax * .8
+				search = True 		#is the scanner looking for a peak (True), or the end of a peak (False)
+				hmax = np.max(hsum)	#maximum hsum value
+				h_threshold = hmax * .8	#threshold for finding horizontal bar
+				
 				for y, value in enumerate(hsum) :
 					if value > h_threshold and search:
+						#if start of peak
 						start = y
 						search = False
 					if value < h_threshold and not search:
+						#if end of peak
 						end = y
 						offsetY = (float(start + end)-HEIGHT)/2
 						targets.append(self.Target(offsetX, offsetY, width, v_threshold, h_threshold, (seg1, seg2), len(targets)))
