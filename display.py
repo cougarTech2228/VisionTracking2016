@@ -60,7 +60,6 @@ def parse(msg):
     a = a.reshape(int(l), int(w))
 
     if active:
-        print(a)
         cv2.imshow("found",a)
         cv2.waitKey(10)
 listen()

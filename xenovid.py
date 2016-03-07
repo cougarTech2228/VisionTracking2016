@@ -78,6 +78,7 @@ class Utils:
                         found= False)           #display crosshairs
                 self.last_logged = ""   #the last thing logged by Utils.log
                 self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #socket client for remote viewer
+                self.disp_img = None    #last image shown by the display function
 
         def enable(self):
                 #enable the leds
@@ -100,20 +101,23 @@ class Utils:
                 if not self.show.found : return
                 
                 disp_img = sig.copy()
+                for s in vt.segments:
+                    cv2.line(disp_img,(s.center,0),(s.center,HEIGHT),(0,255,255),2)
         
                 if(found):
                         offX = int(vt.target.offsetX)
                         offY = int(vt.target.offsetY)
-                        cv2.line(disp_img,(WIDTH/2 + offX,0),(WIDTH/2 + offX,HEIGHT),(0,0,255),3)
-                        cv2.line(disp_img,(0, HEIGHT/2 +offY),(WIDTH, HEIGHT/2 + offY),(0,0,255),3)
+                        cv2.line(disp_img,(WIDTH/2 + offX,0),(WIDTH/2 + offX,HEIGHT),(0,0,255),4)
+                        cv2.line(disp_img,(0, HEIGHT/2 +offY),(WIDTH, HEIGHT/2 + offY),(0,0,255),4)
                 else:
-                        cv2.putText(disp_img, code, (WIDTH/3, HEIGHT/3), cv2.FONT_HERSHEY_PLAIN, 4, (0,0,255),4)    
+                        cv2.putText(disp_img, code, (WIDTH/2-10, HEIGHT/2-10), cv2.FONT_HERSHEY_PLAIN, 4, (0,0,255),4)    
                 
                 self.show(disp_img)
+                self.disp_img = disp_img
 
         def show(self, img):
             #shows an image, meant for configuration
-            cv2.imshow("found",img)
+            cv2.imshow("found",img) 
 
         def update(self, sig, back, diff, r,g,b,mono):
                 #updates all the displays
@@ -145,7 +149,7 @@ class Utils:
                 self.sock.connect(("192.168.7.1", 50007))
         
         def send_img(self,img) :
-                icop = np.array(img, dtype=uint8)
+                icop = np.array(img, dtype=np.uint8)
                 l, w = icop.shape
                 text = icop.tostring()
                 text = text + '<HEAD>{0}#{1}'.format(l,w)
@@ -156,13 +160,13 @@ class Utils:
                 while True:
                         sleep(delay)
                         try:
-                                self.send_img(vt.mono)
+                                self.send_img(self.disp_img[:,:,0])
                         except:
                                 print("no connection")
                                 try:
                                         self.connect()
                                 except:
-                                        time.sleep(1)
+                                        sleep(1)
                                 
 class VideoThread(threading.Thread):
         #main thread for image processing
@@ -177,6 +181,9 @@ class VideoThread(threading.Thread):
                 
                 self.MIN_VERT_THRESH = 1500 #minimum threshold for finding the vertical bars
 
+                self.targets= []
+                self.segments=[]
+
         def run(self):
                 #starts the image processing loop
                 #kills the thread when self.halt is set to true
@@ -188,7 +195,7 @@ class VideoThread(threading.Thread):
                                 self.process()
         
         def process(self):
-                self.sig = sig[:,:,1]  
+                self.sig = sig[:,:,1] #test variable, remove 
 
                 #processes images aquired by the c code
                 diff = cv2.subtract(sig, back) # could do the diff in C code.
@@ -221,6 +228,8 @@ class VideoThread(threading.Thread):
                                 segments.append(self.Segment(start, end, (start+end)/2, area))
                                 search = True
 
+                targets = []
+
                 #we have now found all the vertical bars (peaks/segments), time to look for targets
                 if len(segments) < 2:
                         #we need at least 2 segments
@@ -228,9 +237,7 @@ class VideoThread(threading.Thread):
                 elif len(segments) > 6:
                         #we should never find more then 6
                         self.result(False,"=| Too Many Segments. {0} Segments.".format(len(segments)))
-                else:
-                        targets = []
-                        
+                else:   
                         #iterate through each segment, and check for a target between it and a neighboring segment
                         for index, segment in enumerate(segments):
                                 if index == len(segments) - 1: break 
@@ -278,6 +285,8 @@ class VideoThread(threading.Thread):
 
                 #update the displays for debuging
                 utils.update(sig, back, diff, rdiff, gdiff, bdiff, mono_diff)
+                self.targets = targets
+                self.segments = segments
                 
         def result(self, found, message="", code="?"):
                 #updates display (crosshairs), console log, and net tables after vt.process anylises a frame
