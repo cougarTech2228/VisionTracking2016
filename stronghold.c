@@ -55,7 +55,7 @@ static void xioctl(int fh, int request, void *arg)
 }
 
 void embedpy();
-#define FORMAT V4L2_PIX_FMT_BGR24 
+#define FORMAT V4L2_PIX_FMT_YUYV 
 #define SYNC_EVENT 1L
 
 RT_EVENT vid_sync;

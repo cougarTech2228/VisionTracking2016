@@ -10,7 +10,7 @@ import socket
 from time import sleep
 
 from stronghold import WIDTH, HEIGHT, vidconf_s
-Image=(((c_ubyte*3)*WIDTH)*HEIGHT)
+Image=(((c_ubyte*2)*WIDTH)*HEIGHT)
 from numpy.ctypeslib import as_array
 
 try :
@@ -35,8 +35,8 @@ except ImportError :
 sig = as_array(ia)
 back = as_array(ib)
 
-vc.on_time = 1250000 # units are nanoseconds. 
-vc.led_enabled = False
+#vc.on_time = 1250000 # units are nanoseconds. 
+#vc.led_enabled = False
 # frame time is 30 milliseconds, so make it smaller than that.
 
 import cv2, threading
@@ -54,6 +54,7 @@ except:
         print("ERROR in creating network tables: " + str(sys.exc_info()[0]))
 
 sd = NetworkTable.getTable("SmartDashboard")
+
 
 class Struct:
         #useful one liner for creating struct like variables
@@ -100,7 +101,7 @@ class Utils:
                 #and string <code> if it is not
                 if not self.show.found : return
                 
-                disp_img = sig.copy()
+                disp_img = sig.copy()[:,:,0]
                 for s in vt.segments:
                     cv2.line(disp_img,(s.center,0),(s.center,HEIGHT),(0,255,255),2)
         
@@ -112,10 +113,10 @@ class Utils:
                 else:
                         cv2.putText(disp_img, code, (WIDTH/2-10, HEIGHT/2-10), cv2.FONT_HERSHEY_PLAIN, 4, (0,0,255),4)    
                 
-                self.show(disp_img)
+                self.imshow(disp_img)
                 self.disp_img = disp_img
 
-        def show(self, img):
+        def imshow(self, img):
             #shows an image, meant for configuration
             cv2.imshow("found",img) 
 
@@ -123,7 +124,7 @@ class Utils:
                 #updates all the displays
                 #called by vt.process()
                 if sig is not None and self.show.sig:
-                        cv2.imshow("sig",sig)
+                        cv2.imshow("sig",sig[:,:,0])
                 if back is not None and self.show.back:
                         cv2.imshow("back",back)
                 if diff is not None and self.show.diff.sum:
@@ -178,6 +179,7 @@ class VideoThread(threading.Thread):
                 self.Segment = namedtuple("Segment", ["start","end","center","area"])   
                 self.Target = namedtuple("Target", ["offsetX", "offsetY", "width", "v_threshold", "h_threshold", "segments", "index"])
                 sd.putBoolean(keys.KEY_VISION, False)
+                sd.putNumber(keys.KEY_ON_MILLISECONDS, 3.5) # milliseconds
                 
                 self.MIN_VERT_THRESH = 1500 #minimum threshold for finding the vertical bars
 
@@ -190,23 +192,29 @@ class VideoThread(threading.Thread):
                 while not self.halt:
                         #get enabled flag from net tables and update c variable
                         vc.led_enabled = sd.getBoolean(keys.KEY_VISION)
+
+                        vc.on_time = int(sd.getNumber(keys.KEY_ON_MILLISECONDS)*1000000)
+                        #
                         if vc.led_enabled :
                                 #if net tables tells us to process the process
                                 self.process()
+                                cv2.waitKey(10)
         
         def process(self):
-                self.sig = sig[:,:,1] #test variable, remove 
+                self.sig = sig[:,:,0] #test variable, remove 
 
                 #processes images aquired by the c code
                 diff = cv2.subtract(sig, back) # could do the diff in C code.
-                bdiff, gdiff, rdiff = [diff[:,:,i] for i in range(3)]
+                bdiff, gdiff = [diff[:,:,i] for i in range(2)]
+                rdiff = gdiff
+                mono_diff = self.mono = bdiff
                 
                 #subtract the rdifff from the gdiff to get rid of motion artifacts
-                self.mono = mono_diff = cv2.subtract(gdiff, rdiff) 
+                #self.mono = mono_diff = cv2.subtract(gdiff, rdiff) 
                 
                 #verticaly sum the mono_diff, then find and appropriate threshold for locating peaks
                 self.vsum = vsum = np.sum(mono_diff, axis=0)
-                v_threshold = (np.max(vsum) + np.min(vsum)) / 2 
+                v_threshold = (np.max(vsum) + np.min(vsum)) * 0.5  # XXX why 0.5? how bout lower?
                 if v_threshold < self.MIN_VERT_THRESH:
                         v_threshold = self.MIN_VERT_THRESH
 
@@ -306,6 +314,9 @@ utils = Utils()
 vt = VideoThread()
 vt.start()
 
+def foo() :
+    sd.putBoolean(keys.KEY_VISION, True)
+    utils.show.sig = True
 
 
 #process an image   
