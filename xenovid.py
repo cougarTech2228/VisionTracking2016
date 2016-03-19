@@ -180,7 +180,8 @@ class VideoThread(threading.Thread):
                 sd.putBoolean(keys.KEY_VISION, False)
                 
                 self.MIN_VERT_THRESH = 1500 #minimum threshold for finding the vertical bars
-
+                self.SMOOTH_FACTOR = 2 #amount that vsum is smoothed
+                
                 self.targets= []
                 self.segments=[]
 
@@ -206,6 +207,7 @@ class VideoThread(threading.Thread):
                 
                 #verticaly sum the mono_diff, then find and appropriate threshold for locating peaks
                 self.vsum = vsum = np.sum(mono_diff, axis=0)
+                self.vsum = vsum = np.roll(vsum, self.SMOOTH_FACTOR) + np.roll(vsum, -self.SMOOTH_FACTOR) + vsum
                 v_threshold = (np.max(vsum) + np.min(vsum)) / 2 
                 if v_threshold < self.MIN_VERT_THRESH:
                         v_threshold = self.MIN_VERT_THRESH
