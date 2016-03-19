@@ -1,5 +1,5 @@
-#define WIDTH 320
-#define HEIGHT 240
+#define WIDTH 160
+#define HEIGHT 120
 
 struct vidconf_s
     {

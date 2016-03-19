@@ -35,7 +35,7 @@ except ImportError :
 sig = as_array(ia)
 back = as_array(ib)
 
-vc.on_time = 1250000 # units are nanoseconds. 
+vc.on_time = 1250000 * 8 # units are nanoseconds. 
 vc.led_enabled = False
 # frame time is 30 milliseconds, so make it smaller than that.
 
@@ -112,10 +112,10 @@ class Utils:
                 else:
                         cv2.putText(disp_img, code, (WIDTH/2-10, HEIGHT/2-10), cv2.FONT_HERSHEY_PLAIN, 4, (0,0,255),4)    
                 
-                self.show(disp_img)
+                self.imshow(disp_img)
                 self.disp_img = disp_img
 
-        def show(self, img):
+        def imshow(self, img):
             #shows an image, meant for configuration
             cv2.imshow("found",img) 
 
@@ -193,7 +193,7 @@ class VideoThread(threading.Thread):
                         if vc.led_enabled :
                                 #if net tables tells us to process the process
                                 self.process()
-        
+				cv2.waitKey(10)
         def process(self):
                 self.sig = sig[:,:,1] #test variable, remove 
 
@@ -205,8 +205,8 @@ class VideoThread(threading.Thread):
                 self.mono = mono_diff = cv2.subtract(gdiff, rdiff) 
                 
                 #verticaly sum the mono_diff, then find and appropriate threshold for locating peaks
-                self.vsum = vsum = np.sum(mono_diff, axis=0)
-                v_threshold = (np.max(vsum) + np.min(vsum)) / 2 
+                self.vsum = vsum = np.sum(mono_diff, axis=0)**2
+                v_threshold = (np.max(vsum) + np.min(vsum)) * .5
                 if v_threshold < self.MIN_VERT_THRESH:
                         v_threshold = self.MIN_VERT_THRESH
 
@@ -254,7 +254,7 @@ class VideoThread(threading.Thread):
 
                                 search = True           #is the scanner looking for a peak (True), or the end of a peak (False)
                                 hmax = np.max(hsum)     #maximum hsum value
-                                h_threshold = hmax * .8 #threshold for finding horizontal bar
+                                h_threshold = hmax * .5 #threshold for finding horizontal bar
                                 
                                 for y, value in enumerate(hsum) :
                                         if value > h_threshold and search:
