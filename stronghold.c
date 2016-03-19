@@ -56,7 +56,8 @@ static void xioctl(int fh, int request, void *arg)
 
 void embedpy();
 #define FORMAT V4L2_PIX_FMT_BGR24 
-#define SYNC_EVENT 1L
+#define ON_EVENT 1L
+#define OFF_EVENT 2L
 
 RT_EVENT vid_sync;
 RT_TASK led_task;
@@ -67,14 +68,16 @@ int led_fd = -1;
 void led(void *arg)
 {
     unsigned long mask;
+
     while (1) {
-        rt_event_wait(&vid_sync, SYNC_EVENT, &mask, EV_ALL, TM_INFINITE);
-        rt_task_sleep(vid_conf.sleep_time);
+        rt_event_wait(&vid_sync, ON_EVENT, &mask, EV_ALL, TM_INFINITE);
+        rt_event_clear(&vid_sync, ON_EVENT, &mask);
         if (vid_conf.led_enabled)
             write(led_fd, vid_conf.invert?"0":"1", 1);
-        rt_task_sleep(vid_conf.on_time);
+
+        rt_event_wait(&vid_sync, OFF_EVENT, &mask, EV_ALL, TM_INFINITE);
         write(led_fd, vid_conf.invert?"1":"0", 1);
-        rt_event_clear(&vid_sync, SYNC_EVENT, &mask);
+        rt_event_clear(&vid_sync, OFF_EVENT, &mask);
     }
 }
 
@@ -139,7 +142,7 @@ int init_video()
                     fmt.fmt.pix.width, fmt.fmt.pix.height);
 
     CLEAR(req);
-    req.count = 2;
+    req.count = 4;
     req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     req.memory = V4L2_MEMORY_MMAP;
     xioctl(vid_fd, VIDIOC_REQBUFS, &req);
@@ -199,8 +202,10 @@ void grab_image()
     buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     buf.memory = V4L2_MEMORY_MMAP;
     xioctl(vid_fd, VIDIOC_DQBUF, &buf);
-    if (buf.index == 1)
-        rt_event_signal(&vid_sync, SYNC_EVENT);
+    if (buf.index == 0)
+        rt_event_signal(&vid_sync, ON_EVENT);	
+    if (buf.index == 2)
+        rt_event_signal(&vid_sync, OFF_EVENT);
     xioctl(vid_fd, VIDIOC_QBUF, &buf);
 }
 
@@ -233,7 +238,7 @@ int main(int argc, char **argv)
 
 static PyObject* py_addrs(PyObject* self, PyObject* args)
 {
-	return Py_BuildValue("iii",buffers[0].start, buffers[1].start, &vid_conf);
+	return Py_BuildValue("iiiii",buffers[0].start, buffers[1].start, buffers[2].start, buffers[3].start, &vid_conf);
 }
 
 static PyObject* py_avg(PyObject* self, PyObject* args)

@@ -16,24 +16,29 @@ from numpy.ctypeslib import as_array
 try :
         # are we running embedded?
         import _ct # cougar tech C threads
-        a,b,vid_conf_addr = _ct.addrs()
+        a,b,c,e,vid_conf_addr = _ct.addrs()
         vc = vidconf_s.from_address(vid_conf_addr)
         ia = Image.from_address(a)
         ib = Image.from_address(b)
+        ic = Image.from_address(c)
+        ie = Image.from_address(e)
+
 except ImportError :
         # we are running with no c code running the camera
         _ct = None
         vc = vidconf_s()
         ia = Image()
         ib = Image()
+        ic = Image()
+        ie = Image()
         import sys
         if len(sys.argv) == 2 :
                 testdat = sys.argv[1]
         else :
                 testdat = "./testdata/rally1/"
 
-sig = as_array(ia)
-back = as_array(ib)
+sig = as_array(ic)
+back = as_array(ia)
 
 vc.on_time = 1250000 * 8 # units are nanoseconds. 
 vc.led_enabled = False
@@ -113,11 +118,17 @@ class Utils:
                         cv2.putText(disp_img, code, (WIDTH/2-10, HEIGHT/2-10), cv2.FONT_HERSHEY_PLAIN, 4, (0,0,255),4)    
                 
                 self.imshow(disp_img)
-                self.disp_img = disp_img
+		#self.share(disp_img)
+		self.disp_img = disp_img
 
         def imshow(self, img):
-            #shows an image, meant for configuration
-            cv2.imshow("found",img) 
+		#shows an image, meant for configuration
+		cv2.imshow("found",img)
+
+	def share(self, img):
+	        #shares image over nettables
+		value = nt2.type.NumberArray.from_list(m.flatten())			
+                sp.putValue(keys.KEY_IMAGE, value)
 
         def update(self, sig, back, diff, r,g,b,mono):
                 #updates all the displays
