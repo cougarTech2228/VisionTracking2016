@@ -118,16 +118,16 @@ class Utils:
                         cv2.putText(disp_img, code, (WIDTH/2-10, HEIGHT/2-10), cv2.FONT_HERSHEY_PLAIN, 4, (0,0,255),4)    
                 
                 self.imshow(disp_img)
-		#self.share(disp_img)
-		self.disp_img = disp_img
+                #self.share(disp_img)
+                self.disp_img = disp_img
 
         def imshow(self, img):
-		#shows an image, meant for configuration
-		cv2.imshow("found",img)
+                #shows an image, meant for configuration
+                cv2.imshow("found",img)
 
-	def share(self, img):
-	        #shares image over nettables
-		value = nt2.type.NumberArray.from_list(m.flatten())			
+        def share(self, img):
+                #shares image over nettables
+                value = nt2.type.NumberArray.from_list(m.flatten())                     
                 sp.putValue(keys.KEY_IMAGE, value)
 
         def update(self, sig, back, diff, r,g,b,mono):
@@ -205,7 +205,7 @@ class VideoThread(threading.Thread):
                         if vc.led_enabled :
                                 #if net tables tells us to process the process
                                 self.process()
-				cv2.waitKey(10)
+                                cv2.waitKey(10)
         def process(self):
                 self.sig = sig[:,:,1] #test variable, remove 
 
